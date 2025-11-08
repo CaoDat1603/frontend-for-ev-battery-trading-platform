@@ -1,9 +1,13 @@
-import React from 'react';
-import { 
-    Popover, Box, Typography, Button, Divider, 
+import React, { useState, useEffect } from "react";
+
+import {
+    Popover, Box, Typography, Button, Divider,
     List, ListItem, ListItemText, ListItemIcon, Avatar
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useNavigate } from "react-router-dom";
+import { UserService } from "../../services/userService";
+
 
 // --- ICONS TIỆN ÍCH ---
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'; // Tin đăng đã lưu
@@ -29,8 +33,6 @@ interface AccountMenuPopoverProps {
     open: boolean;
     anchorEl: null | HTMLElement;
     handleClose: () => void;
-    isLoggedIn: boolean;       // <--- THÊM PROP NÀY
-    user: UserData | null;     // user có thể là null khi chưa đăng nhập
 }
 
 // --- Dữ liệu Menu ---
@@ -50,10 +52,53 @@ const otherLinks = [
 ];
 
 
-export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({ 
-    open, anchorEl, handleClose, isLoggedIn, user 
+export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
+    open, anchorEl, handleClose
 }) => {
     const theme = useTheme();
+    const navigate = useNavigate();
+
+    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+    const [user, setUser] = useState<UserData | null>(null);
+
+    useEffect(() => {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+            setIsLoggedIn(false);
+            setUser(null);
+            return;
+        }
+
+        const fetchProfile = async () => {
+            try {
+                const data = await UserService.getProfile();
+                setUser({
+                    name: data.userFullName,
+                    avatarUrl: data.avatar,
+                    followers: 0,
+                    following: 0,
+                    eCoin: 0,
+                });
+                setIsLoggedIn(true);
+            } catch (err) {
+                console.error("Không lấy được user:", err);
+                setIsLoggedIn(false);
+            }
+        };
+
+        if (open) fetchProfile();
+    }, [open]);
+
+    const handleLogout = () => {
+        localStorage.removeItem("accessToken");
+        handleClose();
+        navigate("/login");
+    };
+    
+    const goToAccountSettings = () => {
+        handleClose();
+        navigate("/account/profile");
+    };
 
     // --- RENDER TRẠNG THÁI CHƯA ĐĂNG NHẬP (image_0a9a27.png) ---
     const renderLoggedOutState = () => (
@@ -68,20 +113,20 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
 
             {/* 2. Nút Hành động */}
             <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
-                <Button 
-                    variant="outlined" 
+                <Button
+                    variant="outlined"
                     fullWidth
                     sx={{ py: 1.2, fontWeight: 'bold' }}
-                    onClick={handleClose}
+                    onClick={() => { handleClose(); navigate("/register"); }}
                 >
                     Tạo tài khoản
                 </Button>
-                <Button 
-                    variant="contained" 
-                    color="ecycle" 
-                    fullWidth 
+                <Button
+                    variant="contained"
+                    color="ecycle"
+                    fullWidth
                     sx={{ py: 1.2, fontWeight: 'bold' }}
-                    onClick={handleClose}
+                    onClick={() => { handleClose(); navigate("/login"); }}
                 >
                     Đăng nhập
                 </Button>
@@ -89,7 +134,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
         </Box>
     );
 
-// --- RENDER LOGIC CHÍNH ---
+    // --- RENDER LOGIC CHÍNH ---
     return (
         <Popover
             open={open}
@@ -104,14 +149,14 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                 vertical: 'top', // Bắt đầu Popover từ đỉnh của nó
                 horizontal: 'right', // Căn phải Popover với nút bấm
             }}
-            
+
             slotProps={{
                 paper: {
                     sx: {
                         borderRadius: '8px',
                         mt: 0.5,
                         // Điều chỉnh minWidth cho trạng thái chưa đăng nhập
-                        minWidth: isLoggedIn ? 300 : 320, 
+                        minWidth: isLoggedIn ? 300 : 320,
                         maxWidth: 350,
                         overflow: 'visible',
                         py: isLoggedIn ? 2 : 0 // Bỏ padding trên/dưới nếu chưa đăng nhập
@@ -119,12 +164,13 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                 },
             }}
         >
+            {/* TRẠNG THÁI LOGIN */}
             {isLoggedIn && user ? (
                 <Box sx={{ width: '100%' }}>
                     {/* 1. PROFILE HEADER */}
                     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                        <Avatar 
-                            src={user.avatarUrl} 
+                        <Avatar
+                            src={user.avatarUrl}
                             alt={user.name}
                             sx={{ width: 64, height: 64, mb: 1.5, border: `2px solid ${theme.palette.warning.main}` }}
                         >
@@ -144,7 +190,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                     </Box>
 
                     <Divider sx={{ my: 1 }} />
-                    
+
                     {/* 2. TIỆN ÍCH */}
                     <List dense sx={{ pt: 1 }}>
                         <Typography variant="subtitle2" color="text.secondary" sx={{ ml: 2, mb: 0.5 }}>
@@ -166,15 +212,30 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                             Khác
                         </Typography>
                         {otherLinks.map((item) => (
-                            <ListItem key={item.text} onClick={handleClose} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
+                            <ListItem 
+                                key={item.text}
+                                onClick={() => {
+                                    if (item.text === "Cài đặt tài khoản") return goToAccountSettings();
+                                    handleClose();
+                                }}
+                                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                            >
                                 <ListItemIcon sx={{ minWidth: 40 }}><item.icon /></ListItemIcon>
                                 <ListItemText primary={item.text} />
                             </ListItem>
                         ))}
                         {/* ĐĂNG XUẤT */}
-                        <ListItem onClick={handleClose} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
-                            <ListItemIcon sx={{ minWidth: 40 }}><LogoutIcon sx={{ color: theme.palette.error.main }} /></ListItemIcon>
-                            <ListItemText primary="Đăng xuất" primaryTypographyProps={{ color: theme.palette.error.main }} />
+                        <ListItem 
+                            onClick={handleLogout}
+                            sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                        >
+                            <ListItemIcon sx={{ minWidth: 40 }}>
+                                <LogoutIcon sx={{ color: theme.palette.error.main }} />
+                            </ListItemIcon>
+                            <ListItemText 
+                                primary="Đăng xuất" 
+                                primaryTypographyProps={{ color: theme.palette.error.main }} 
+                            />
                         </ListItem>
                     </List>
                 </Box>
