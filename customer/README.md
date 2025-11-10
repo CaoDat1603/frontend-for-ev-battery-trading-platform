@@ -13,7 +13,9 @@ It includes basic ESLint rules and supports Hot Module Replacement (HMR) for an 
 npm install @mui/material @emotion/react @emotion/styled
 npm install @mui/icons-material
 npm install react-router-dom
-npm install --save-dev @types/react @types/react-dom @types/node
+npm install --save-dev @types/react @types/
+npm install html2canvas jspdf
+react-dom @types/node
 ```
 
 ### 2. Run the Project

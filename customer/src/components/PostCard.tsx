@@ -1,7 +1,5 @@
-// src/components/PostCard.tsx
-
-import React from 'react';
-import { useNavigate } from 'react-router-dom'; // Thêm hook điều hướng
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
     Box, Typography, Card, CardMedia, CardContent, 
     IconButton, Chip, Button
@@ -11,80 +9,125 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StorefrontIcon from '@mui/icons-material/Storefront'; 
 import GavelIcon from '@mui/icons-material/Gavel'; 
+import VerifiedIcon from '@mui/icons-material/Verified';
 import { useTheme } from '@mui/material/styles';
 
-// --- Kiểu dữ liệu cho Tin đăng ---
-export interface Post {
-    id: string;
+// --- Kiểu dữ liệu cho Tin đăng (ĐỒNG BỘ VỚI ProductData) ---
+// Đã đổi tên interface từ Post thành PostData để phản ánh dữ liệu sản phẩm
+// Thêm thuộc tính saleMethod để xác định dạng sản phẩm (FixedPrice: 0, Auction: 1)
+export interface PostData {
+    productId: number;
     title: string;
-    price: string;
-    location: string;
-    details: string; // Năm sản xuất, số km, ...
-    timeAgo: string; // VD: "29 giây trước"
-    image: string;
-    isFeatured: boolean; // Tin tiêu biểu
+    price: number; 
+    // Các trường dưới đây được mapping từ ProductData
+    pickupAddress: string; 
+    description: string; 
+    createdAt: string; 
+    imageUrl: string | null; 
+    isVerified: boolean; 
+    // Đã đổi tên thành saleMethod để dễ hiểu hơn, nhưng giá trị vẫn là số (0/1)
+    saleMethod: number; // 0: FixedPrice (Mua Ngay), 1: Auction (Đấu Giá)
+    // Các trường khác từ ProductData không cần thiết cho Card view thì bỏ qua
 }
 
 interface PostCardProps {
-    post: Post;
+    post: PostData;
 }
+
+// Helper function để định dạng tiền tệ VNĐ
+const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+    }).format(amount);
+};
+
+// Helper function để tính thời gian đã trôi qua
+const timeAgo = (dateString: string): string => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - past.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return `${diffInSeconds} giây trước`;
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) return `${diffInMinutes} phút trước`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} giờ trước`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) return `${diffInDays} ngày trước`;
+    
+    // Nếu quá lâu, trả về ngày tháng đơn giản
+    return past.toLocaleDateString('vi-VN');
+};
+
 
 export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const theme = useTheme();
-    const navigate = useNavigate(); // Khởi tạo hook điều hướng
+    const navigate = useNavigate();
+
+    // SỬ DỤNG useMemo để tính toán các giá trị hiển thị
+    const formattedPrice = useMemo(() => formatCurrency(post.price), [post.price]);
+    const displayTimeAgo = useMemo(() => timeAgo(post.createdAt), [post.createdAt]);
+    // SỬ DỤNG thuộc tính MỚI: saleMethod
+    const isAuction = post.saleMethod === 1; // 1: Auction, 0: FixedPrice
 
     // Xử lý sự kiện click vào Card để chuyển sang trang chi tiết
     const handleCardClick = () => {
-        // Điều hướng đến trang chi tiết. Giả định URL là /tin-dang/id-cua-bai-viet
-        navigate(`/tin-dang/${post.id}`);
-        console.log(`View post ${post.id}`);
+        // Sử dụng productId để điều hướng
+        navigate(`/content/${post.productId}`);
+        console.log(`View post ${post.productId}`);
     };
     
     // Giả định hàm thêm/xóa khỏi mục yêu thích
     const handleToggleFavorite = (e: React.MouseEvent) => {
-        e.stopPropagation(); // QUAN TRỌNG: Ngăn chặn click lan truyền lên Card
-        console.log(`Toggle favorite for post ${post.id}`);
+        e.stopPropagation(); 
+        console.log(`Toggle favorite for post ${post.productId}`);
     };
 
     // Hàm giả định cho hành động Mua Ngay
     const handleBuyNow = (e: React.MouseEvent) => {
-        e.stopPropagation(); // QUAN TRỌNG: Ngăn chặn click lan truyền lên Card
-        console.log(`Tiến hành Mua Ngay xe: ${post.title}`);
+        e.stopPropagation(); 
+        console.log(`Tiến hành Mua Ngay sản phẩm: ${post.title}`);
     };
 
     // Hàm giả định cho hành động Đấu Giá
     const handleBid = (e: React.MouseEvent) => {
-        e.stopPropagation(); // QUAN TRỌNG: Ngăn chặn click lan truyền lên Card
-        console.log(`Bắt đầu Đấu Giá xe: ${post.title}`);
+        e.stopPropagation();
+        console.log(`Bắt đầu Đấu Giá sản phẩm: ${post.title}`);
     };
 
     return (
         <Card 
             sx={{ 
                 width: 240, 
-                height: 420, // ĐIỀU CHỈNH: Giảm chiều cao tổng thể
+                height: 420, 
                 cursor: 'pointer', 
                 position: 'relative',
                 borderRadius: '8px',
+                // Cải thiện khả năng responsive cho container nhỏ hơn 
+                minWidth: { xs: 240, sm: 240 },
+                maxWidth: 280,
+                flexShrink: 0,
                 '&:hover': { boxShadow: 6 } 
             }}
             elevation={2}
-            onClick={handleCardClick} // SỬA: Dùng hàm điều hướng mới
+            onClick={handleCardClick}
         >
             {/* 1. Phần Ảnh (Media) */}
             <Box sx={{ position: 'relative' }}>
                 <CardMedia
                     component="img"
                     height="180"
-                    image={post.image}
+                    // Sử dụng imageUrl từ ProductData
+                    image={post.imageUrl || 'https://placehold.co/400x300/e0e0e0/505050?text=No+Image'}
                     alt={post.title}
                     sx={{ objectFit: 'cover' }}
                 />
 
-                {/* Tag thời gian */}
+                {/* Tag thời gian (Tính toán từ createdAt) */}
                 <Chip 
                     icon={<AccessTimeIcon sx={{ fontSize: '12px !important' }} />}
-                    label={post.timeAgo}
+                    label={displayTimeAgo}
                     size="small"
                     sx={{ 
                         position: 'absolute', 
@@ -98,19 +141,21 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     }}
                 />
                 
-                {/* Tag Tin tiêu biểu */}
-                {post.isFeatured && (
+                {/* Tag Tin đã kiểm định (isVerified) */}
+                {post.isVerified && (
                     <Chip
-                        label="Tin tiêu biểu"
+                        icon={<VerifiedIcon sx={{ fontSize: '12px !important' }} />}
+                        label="Đã kiểm định"
                         size="small"
                         sx={{
                             position: 'absolute',
                             top: 8,
                             left: 8,
-                            bgcolor: theme.palette.warning.main,
+                            bgcolor: theme.palette.success.main, // Màu xanh lá cây cho đã kiểm định
                             color: 'white',
                             fontWeight: 'bold',
-                            height: 20
+                            height: 20,
+                            '.MuiChip-icon': { color: 'white !important', ml: 0.5 },
                         }}
                     />
                 )}
@@ -141,7 +186,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     fontWeight="bold" 
                     sx={{ mb: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                 >
-                    {post.price}
+                    {/* Sử dụng giá đã định dạng */}
+                    {formattedPrice}
                 </Typography>
 
                 {/* Tiêu đề (GIỚI HẠN 2 DÒNG) */}
@@ -153,37 +199,35 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     sx={{ 
                         overflow: 'hidden',
                         display: '-webkit-box',
-                        WebkitLineClamp: 2, // ĐIỀU CHỈNH: Tối đa 2 dòng
+                        WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical',
                         mb: 1,
-                        // Chiều cao cố định cho 2 dòng để giữ bố cục
                         height: 60 
                     }}
                 >
                     {post.title}
                 </Typography>
                 
-                {/* Chi tiết (GIỚI HẠN 1 DÒNG) */}
+                {/* Chi tiết (Tạm dùng Description) */}
                 <Typography 
                     variant="body2" 
                     color="text.secondary"
                     sx={{ 
                         mb: 1,
-                        whiteSpace: 'nowrap', // ĐIỀU CHỈNH: Chỉ 1 dòng
+                        whiteSpace: 'nowrap',
                         overflow: 'hidden', 
                         textOverflow: 'ellipsis'
                     }} 
                 >
-                    {post.details}
+                    {post.description || 'Không có mô tả chi tiết.'}
                 </Typography>
 
-                {/* Vị trí (GIỚI HẠN 1 DÒNG) */}
+                {/* Vị trí */}
                 <Box sx={{ 
                     display: 'flex', 
                     alignItems: 'center', 
                     color: 'text.secondary', 
                     mb: 1,
-                    // Giữ phần này trong 1 dòng
                     whiteSpace: 'nowrap', 
                     overflow: 'hidden', 
                 }}>
@@ -195,52 +239,65 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                             textOverflow: 'ellipsis' 
                         }}
                     >
-                        {post.location}
+                        {/* Sử dụng pickupAddress */}
+                        {post.pickupAddress}
                     </Typography>
                 </Box>
 
-                {/* KHỐI 2 BUTTON (MUA NGAY & ĐẤU GIÁ) */}
+                {/* KHỐI 2 BUTTON (MUA NGAY & ĐẤU GIÁ) - Hiển thị tùy theo SaleMethod */}
                 <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                    {/* Nút MUA NGAY */}
-                    <Button 
-                        variant="contained" 
-                        size="small" 
-                        fullWidth 
-                        startIcon={<StorefrontIcon />}
-                        onClick={handleBuyNow}
-                        sx={{ 
-                            textTransform: 'uppercase', 
-                            fontWeight: 'bold',
-                            fontSize: 12,
-                            px: 0.5,
-                            py: 0.7,
-                            bgcolor: theme.palette.primary.main,
-                            '&:hover': { bgcolor: theme.palette.primary.dark }
-                        }}
-                    >
-                        Mua ngay
-                    </Button>
+                    {/* Nút MUA NGAY (Chỉ hiển thị nếu là FixedPrice hoặc cả hai) */}
+                    {post.saleMethod === 0 && ( // Chỉ hiển thị Mua Ngay nếu là FixedPrice
+                        <Button 
+                            variant="contained" 
+                            size="small" 
+                            fullWidth 
+                            startIcon={<StorefrontIcon />}
+                            onClick={handleBuyNow}
+                            sx={{ 
+                                textTransform: 'uppercase', 
+                                fontWeight: 'bold',
+                                fontSize: 12,
+                                px: 0.5,
+                                py: 0.7,
+                                bgcolor: theme.palette.primary.main,
+                                '&:hover': { bgcolor: theme.palette.primary.dark }
+                            }}
+                        >
+                            Mua ngay
+                        </Button>
+                    )}
 
-                    {/* Nút ĐẤU GIÁ */}
-                    <Button 
-                        variant="outlined" 
-                        size="small" 
-                        fullWidth 
-                        startIcon={<GavelIcon />}
-                        onClick={handleBid}
-                        sx={{ 
-                            textTransform: 'uppercase', 
-                            fontWeight: 'bold',
-                            fontSize: 12,
-                            px: 0.5,
-                            py: 0.7,
-                            borderColor: theme.palette.primary.main,
-                            color: theme.palette.primary.main,
-                            '&:hover': { borderColor: theme.palette.primary.dark, color: theme.palette.primary.dark }
-                        }}
-                    >
-                        Đấu giá
-                    </Button>
+                    {/* Nút ĐẤU GIÁ (Chỉ hiển thị nếu là Auction hoặc cả hai) */}
+                    {isAuction && ( // Hiển thị Đấu Giá nếu là Auction
+                        <Button 
+                            variant="outlined" 
+                            size="small" 
+                            fullWidth 
+                            startIcon={<GavelIcon />}
+                            onClick={handleBid}
+                            sx={{ 
+                                textTransform: 'uppercase', 
+                                fontWeight: 'bold',
+                                fontSize: 12,
+                                px: 0.5,
+                                py: 0.7,
+                                borderColor: theme.palette.primary.main,
+                                color: theme.palette.primary.main,
+                                '&:hover': { borderColor: theme.palette.primary.dark, color: theme.palette.primary.dark }
+                            }}
+                        >
+                            Đấu giá
+                        </Button>
+                    )}
+                    
+                    {/* Trường hợp cả 2 phương thức: Bạn có thể cần điều chỉnh logic ở đây 
+                        để hiển thị cả hai nút hoặc chỉ một nút ưu tiên. 
+                        Hiện tại, nếu API cho phép FixedPrice (0) VÀ Auction (1), 
+                        bạn sẽ phải bổ sung logic để kiểm tra cả hai,
+                        hoặc API chỉ trả về MỘT phương thức bán hàng chính.
+                        Tôi giữ logic hiện tại: FixedPrice -> Mua Ngay, Auction -> Đấu Giá.
+                    */}
                 </Box>
                 
             </CardContent>

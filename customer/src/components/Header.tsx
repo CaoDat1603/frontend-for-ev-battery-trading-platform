@@ -1,21 +1,14 @@
 import React, { useState, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import type { MouseEvent } from 'react'; 
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  AppBar,
-  Toolbar,
-  Button,
-  IconButton,
-  InputBase,
-  Box,
-  Avatar,
-  Badge
+    AppBar, Toolbar, Button, IconButton, InputBase, Box, Avatar, Badge, Typography
 } from '@mui/material';
 
-// ********** Đảm bảo logo đã được đổi tên và Alt text được cập nhật sau này **********
+// ********** LOGO **********
 import MyLogo from '../assets/my-logo.jpg'; 
 
-// Import các icon từ MUI Icons
+// Import Icons
 import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
@@ -26,65 +19,61 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 
-// Import Component 
-import { LocationPopover } from './popovers/LocationDialog';
+// Import Component Popovers
+import LocationPropsPopover from './popovers/LocationDialog'; 
 import { CategoryMenu } from './popovers/CategoryMenu';
 import { SavedPostsPopover, type SavedPost } from './popovers/SavedPostsPopover';
 import { NotificationPopover } from './popovers/NotificationPopover'; 
 import { AccountMenuPopover } from './popovers/AccountMenuPopover';
 
-// --- Dữ liệu Tin đã lưu giả định (Tạm thời đặt ở đây) ---
+// Import Context (Đảm bảo đường dẫn đúng)
+import { useLocationContext } from '../context/LocationContext'; 
+
+// Import constants & data
+import { LOCATION_STORAGE_KEY } from '../utils/constants';
+import { VIETNAM_PROVINCES, type Province, type District } from '../data/vietnamLocations'; 
+
+
+// --- DỮ LIỆU CỐ ĐỊNH ---
+const ALL_VIETNAM_OPTION: Province = { id: 0, name: 'Toàn quốc', districts: [] };
+const LOCATION_DATA = VIETNAM_PROVINCES;
+
+// --- Dữ liệu giả định (Giữ nguyên) ---
 const mockSavedPosts: SavedPost[] = [
     { 
         id: '1', 
-        imagePath: 'https://cdn.chotot.com/CK6Dr1fDxlyaV6WLe_GKd9W-n8eKR6qskJ6j8053KIY/preset:view/plain/a5cec488c3e01ac58b69f98f7ac28b95-2954240447799733789.jpg',
+        imagePath: '...',
         name: 'Toyota Yaris Cross 2024 1.5 D-CVT',
         price: '730.000.000 VNĐ', 
         details: '35.852 km',
     }
 ];
-
-// --- Dữ liệu người dùng giả định ---
 const mockUser = {
     name: 'Đạt Cao',
-    avatarUrl: 'https://cdn.chotot.com/uac2/26732157', // Thay bằng URL ảnh đại diện giả định
+    avatarUrl: 'https://cdn.chotot.com/uac2/26732157', 
     followers: 0,
     following: 0,
     eCoin: 0,
 };
 
 
-// Import constants
-import { LOCATION_STORAGE_KEY, DEFAULT_CITY } from '../utils/constants';
-
-// --- Khai báo kiểu dữ liệu cho Tỉnh/Thành phố và Quận/Huyện (Cần thiết cho TS) ---
-interface Location {
-    id: string;
-    name: string;
-    districts?: Location[];
-}
-
-// --- 1. Custom Component cho Vùng chọn Khu vực (ĐÃ SỬA) ---
+// --- CUSTOM COMPONENT LOCATION SELECT ---
 interface LocationSelectProps {
-    // Sửa kiểu onClick để chấp nhận event
     onClick: (event: React.MouseEvent<HTMLButtonElement>) => void; 
-    city: Location | null;
-    district: Location | null;
+    city: Province | null;
+    district: District | null;
 }
 
-// --- 1. Custom Component cho Vùng chọn Khu vực (KHÔNG ĐỔI) ---
 const LocationSelect: React.FC<LocationSelectProps> = ({ onClick, city, district }) => {
-    
-    // Logic hiển thị text:
     let displayLocation = 'Chọn khu vực';
-    if (city && city.id !== 'all') {
+    
+    if (city && city.id === ALL_VIETNAM_OPTION.id) {
+        displayLocation = 'Toàn quốc';
+    } else if (city) {
         displayLocation = city.name;
-        if (district && district.id !== 'all_dist') {
+        if (district) { 
             displayLocation = district.name;
         } 
-        
-    } else if (city && city.id === 'all') {
-        displayLocation = 'Toàn quốc';
     }
 
     return (
@@ -97,9 +86,7 @@ const LocationSelect: React.FC<LocationSelectProps> = ({ onClick, city, district
                 textTransform: 'none',
                 fontWeight: 'bold',
                 padding: '8px 16px',
-                '&:hover': {
-                    backgroundColor: '#e0e0e0',
-                },
+                '&:hover': { backgroundColor: '#e0e0e0' },
                 maxWidth: 200,
                 overflow: 'hidden',
                 whiteSpace: 'nowrap',
@@ -113,114 +100,69 @@ const LocationSelect: React.FC<LocationSelectProps> = ({ onClick, city, district
     );
 };
 
-// --- 2. Custom Component cho Thanh Tìm kiếm (ĐÃ SỬA) ---
-const SearchBar = () => (
-  <Box
-    sx={{
-      backgroundColor: '#f0f0f0',
-      borderRadius: '8px',
-      display: 'flex',
-      alignItems: 'center',
-      flexGrow: 1, 
-      maxWidth: 800, 
-      marginRight: 2,
-    }}
-  >
-    <InputBase
-      placeholder="Tìm xe cộ..."
-      sx={{
-        ml: 2,
-        flex: 1,
-        fontSize: '1rem',
-        color: 'text.secondary',
-      }}
-      startAdornment={
-        <SearchIcon sx={{ color: 'text.secondary', mr: 1, fontSize: '1.2rem' }} />
-      }
-    />
-    {/* Nút Tìm kiếm: Dùng color="ecycle". Các style (backgroundColor, borderRadius, hover) đã ở trong customTheme.ts */}
-    <IconButton
-      type="submit"
-      color="ecycle" // <--- SỬ DỤNG MÀU TỪ THEME
-      aria-label="search"
-    >
-      <SearchIcon sx={{ color: 'black' }} />
-    </IconButton>
-  </Box>
-);
 
+// --- PROPS MỚI CHO HEADER ---
+interface HeaderProps {
+    // Chỉ truyền searchTerm, vì location sẽ được quản lý bởi Context
+    onSearch: (searchTerm: string) => void; 
+}
 
+// --- COMPONENT CHÍNH: HEADER ---
+export const Header: React.FC<HeaderProps> = ({ onSearch }) => { 
+    const navigate = useNavigate();
+    // LẤY HÀM CẬP NHẬT CONTEXT
+    const { setActiveLocationName } = useLocationContext(); 
 
+    // ********** STATE QUẢN LÝ TÌM KIẾM **********
+    const [searchTerm, setSearchTerm] = useState(''); 
 
-
-// --- 3. Component Chính: Header (ĐÃ SỬA) ---
-export const Header = () => {
-// ********** STATE MỚI CHO BADGE **********
-    const [hasNewNotifications, setHasNewNotifications] = useState(true); // Ví dụ: TRUE để hiển thị chấm đỏ
-    const [isAuctionActive, setIsAuctionActive] = useState(true);       // Ví dụ: TRUE để hiển thị chấm đỏ
-// *****************************************
-
-
-// ********** STATE CHO TÀI KHOẢN **********
-    const [anchorElAccount, setAnchorElAccount] = useState<null | HTMLElement>(null);
-    const isAccountOpen = Boolean(anchorElAccount);
-    
-    const isLoggedIn = true; // Ví dụ: Đặt thành TRUE để test trạng thái đã đăng nhập
-    const currentUser = isLoggedIn ? mockUser : null;
-    
-    // Xử lý mở Popover Tài khoản
-    const handleAccountMenuOpen = (event: ReactMouseEvent<HTMLElement>) => {
-        setAnchorElAccount(event.currentTarget);
-    };
-
-    // Xử lý đóng Popover Tài khoản
-    const handleAccountMenuClose = () => {
-        setAnchorElAccount(null);
-    };
-
-    // --- HÀM CHUYỂN HƯỚNG ĐĂNG NHẬP (Giả định) ---
-    const handleLoginRedirect = () => {
-        console.log("Redirecting to Login Page...");
-        // Ở đây, bạn sẽ sử dụng router (ví dụ: useRouter của Next.js, hoặc useNavigate của React Router)
-        // router.push('/dang-nhap'); 
-    };
-// ********** STATE CHO MENU VỊ TRÍ **********
-    
-    // State để lưu trữ tham chiếu đến nút anchor
+    // ********** STATE VỊ TRÍ **********
     const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
-    
-    // Khởi tạo state bằng giá trị mặc định tạm thời (sẽ bị ghi đè bởi localStorage)
-    const [selectedCity, setSelectedCity] = useState<Location | null>(DEFAULT_CITY);
-    const [selectedDistrict, setSelectedDistrict] = useState<Location | null>(null);
+    const [selectedCity, setSelectedCity] = useState<Province | null>(ALL_VIETNAM_OPTION); 
+    const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
+    const isPopoverOpen = Boolean(anchorEl);
 
-// ********** HIỆU ỨNG 1: ĐỌC DỮ LIỆU TỪ LOCAL STORAGE KHI COMPONENT MOUNT **********
+    // ********** LOGIC TÌM KIẾM QUAN TRỌNG **********
+    const handleSearchSubmit = () => {
+        // GỌI CALLBACK CHO SEARCH
+        onSearch(searchTerm); 
+        // Sau khi tìm kiếm, bạn thường muốn chuyển hướng:
+        // navigate(`/car-ecycle?q=${searchTerm}`);
+    };
+
+    // ********** HIỆU ỨNG 1: ĐỌC DỮ LIỆU TỪ LOCAL STORAGE **********
     useEffect(() => {
         try {
             const savedLocation = localStorage.getItem(LOCATION_STORAGE_KEY);
             if (savedLocation) {
                 const { city, district } = JSON.parse(savedLocation);
+                const initialCity = city || ALL_VIETNAM_OPTION;
+                const initialDistrict = district || null;
+
+                setSelectedCity(initialCity);
+                setSelectedDistrict(initialDistrict);
                 
-                // Đảm bảo dữ liệu đọc ra hợp lệ
-                if (city) {
-                    setSelectedCity(city);
-                }
-                setSelectedDistrict(district || null);
+                // CẬP NHẬT CONTEXT KHI LOAD TỪ LOCAL STORAGE
+                const initialLocationName = initialDistrict?.name || initialCity?.name || ALL_VIETNAM_OPTION.name;
+                setActiveLocationName(initialLocationName); 
+            } else {
+                // Đảm bảo Context được thiết lập nếu không có trong Local Storage
+                setActiveLocationName(ALL_VIETNAM_OPTION.name); 
             }
         } catch (error) {
             console.error("Could not load location from local storage", error);
-            // Nếu lỗi, vẫn giữ giá trị mặc định
-            setSelectedCity(DEFAULT_CITY);
-            setSelectedDistrict(null);
         }
-    }, []); // Chỉ chạy một lần khi component được mount
+    }, []); 
 
-    // Xử lý chọn khu vực và GHI DỮ LIỆU VÀO LOCAL STORAGE
-    const handleSelectLocation = (city: Location | null, district: Location | null) => {
-        const finalCity = city || DEFAULT_CITY;
+    // ********** XỬ LÝ CHỌN VỊ TRÍ VÀ CẬP NHẬT CONTEXT **********
+    const handleSelectLocation = (city: Province | null, district: District | null) => {
+        
+        const finalCity = city || ALL_VIETNAM_OPTION;
         const finalDistrict = district || null;
 
         setSelectedCity(finalCity);
         setSelectedDistrict(finalDistrict);
+        handleClose(); 
 
         // ********** GHI DỮ LIỆU MỚI VÀO LOCAL STORAGE **********
         try {
@@ -232,297 +174,221 @@ export const Header = () => {
         } catch (error) {
             console.error("Could not save location to local storage", error);
         }
+        
+        // 🚨 CẬP NHẬT CONTEXT VỚI VỊ TRÍ MỚI
+        const locationName = finalDistrict?.name || finalCity?.name || ALL_VIETNAM_OPTION.name;
+        setActiveLocationName(locationName); 
+        
+        // Không cần gọi onSearch ở đây, EcycleCategoryPage sẽ tự động reload
+        // nhờ việc lắng nghe Context.
     };
 
-    // 3. Xử lý mở Popover
     const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
         setAnchorEl(event.currentTarget);
     };
 
-    // 4. Xử lý đóng Popover
     const handleClose = () => {
         setAnchorEl(null);
     };
-
-    const isPopoverOpen = Boolean(anchorEl);
-
-// ********** STATE CHO MENU DANH MỤC **********
+    
+    // --- Các state/hàm khác (Giữ nguyên) ---
+    const [anchorElAccount, setAnchorElAccount] = useState<null | HTMLElement>(null);
+    const isAccountOpen = Boolean(anchorElAccount);
+    const isLoggedIn = true; 
+    
+    const handleAccountMenuOpen = (event: ReactMouseEvent<HTMLElement>) => { setAnchorElAccount(event.currentTarget); };
+    const handleAccountMenuClose = () => { setAnchorElAccount(null); };
+    const handleLoginRedirect = () => { console.log("Redirecting to Login Page..."); };
+    
     const [anchorElMenu, setAnchorElMenu] = useState<null | HTMLElement>(null);
     const isMenuOpen = Boolean(anchorElMenu);
+    const handleMenuOpen = (event: MouseEvent<HTMLElement>) => { setAnchorElMenu(event.currentTarget); };
+    const handleMenuClose = () => { setAnchorElMenu(null); };
     
-    // Xử lý mở Menu
-    const handleMenuOpen = (event: MouseEvent<HTMLElement>) => {
-        setAnchorElMenu(event.currentTarget);
-    };
-
-    // Xử lý đóng Menu
-    const handleMenuClose = () => {
-        setAnchorElMenu(null);
-    };
-
-// ********** STATE MỚI CHO TIN ĐÃ LƯU **********
     const [anchorElSaved, setAnchorElSaved] = useState<null | HTMLElement>(null);
     const isSavedOpen = Boolean(anchorElSaved);
-    
-    // Dùng dữ liệu rỗng để test trạng thái rỗng, hoặc dùng mockSavedPosts để test trạng thái có dữ liệu
-    const userSavedPosts: SavedPost[] = mockSavedPosts; // Thay thế bằng [] để test trạng thái rỗng
-    
-    // Xử lý mở Popover Tin đã lưu
-    const handleSavedOpen = (event: ReactMouseEvent<HTMLElement>) => {
-        if (!isLoggedIn) {
-            handleLoginRedirect(); // Nếu chưa đăng nhập, chuyển hướng
-            return;
-        }
-        setAnchorElSaved(event.currentTarget); // Nếu đã đăng nhập, mở Popover
-    };
+    const handleSavedOpen = (event: ReactMouseEvent<HTMLElement>) => { if (!isLoggedIn) { handleLoginRedirect(); return; } setAnchorElSaved(event.currentTarget); };
+    const handleSavedClose = () => { setAnchorElSaved(null); };
 
-    // Xử lý đóng Popover Tin đã lưu
-    const handleSavedClose = () => {
-        setAnchorElSaved(null);
-    };
-
-// ********** STATE MỚI CHO THÔNG BÁO **********
     const [anchorElNoti, setAnchorElNoti] = useState<null | HTMLElement>(null);
     const isNotiOpen = Boolean(anchorElNoti);
+    const handleNotiOpen = (event: ReactMouseEvent<HTMLElement>) => { if (!isLoggedIn) { handleLoginRedirect(); return; } setAnchorElNoti(event.currentTarget); };
+    const handleNotiClose = () => { setAnchorElNoti(null); };
     
-    // Xử lý mở Popover Thông báo
-    const handleNotiOpen = (event: ReactMouseEvent<HTMLElement>) => {
-        if (!isLoggedIn) {
-            handleLoginRedirect(); // Nếu chưa đăng nhập, chuyển hướng
-            return;
-        }
-        setAnchorElNoti(event.currentTarget); // Nếu đã đăng nhập, mở Popover
-    };
-
-    // Xử lý đóng Popover Thông báo
-    const handleNotiClose = () => {
-        setAnchorElNoti(null);
-    };
-
-
-
-
+    const [hasNewNotifications, setHasNewNotifications] = useState(true); 
+    const [isAuctionActive, setIsAuctionActive] = useState(true); 
+    const userSavedPosts: SavedPost[] = mockSavedPosts; 
 
 // **********************************************************************************
-  return (
-    <AppBar position="static" color="inherit" elevation={1}>
-      <Toolbar sx={{
-        paddingX: 3,
-        minHeight: 64,
-        gap: 2,
-      }}>
+    return (
+        <AppBar position="static" color="inherit" elevation={1}>
+        <Toolbar sx={{
+            paddingX: 3,
+            minHeight: 64,
+            gap: 2,
+        }}>
 
-        {/* 1. Menu Icon */}
-        <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            sx={{ mr: 1 }}
-            onClick={handleMenuOpen} // Dùng hàm mở Menu mới
-            >
-            <MenuIcon />
-        </IconButton>
-
-        {/* 2. Logo (Dùng Link để chuyển hướng về trang chủ '/') */}
-        <Link to="/" style={{ textDecoration: 'none' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', minWidth: '100px' }}>
-            <Box 
-              component="img" // Chuẩn cộng đồng: Dùng Box component="img"
-              src={MyLogo}
-              alt="Ecycle Logo - Về trang chủ"
-              sx={{ 
-                height: '42px', 
-                cursor: 'pointer',
-                borderRadius: '8px', 
-              }}
-            />
-          </Box>
-        </Link>
-
-        {/* 3. Vùng chọn Khu vực: Truyền handleClick vào onClick */}
-                <LocationSelect 
-                    onClick={handleClick} // <--- TRUYỀN HÀM XỬ LÝ MỞ POPUP
-                    city={selectedCity}
-                    district={selectedDistrict}
-                />
-
-        {/* 4. Thanh Tìm kiếm */}
-        <SearchBar />
-
-        {/* 5. Các nút Hành động */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {/* ********** NÚT ĐẤU GIÁ (Có Badge) ********** */}
-            <Badge 
-                variant="dot"  // Dùng chấm tròn nhỏ
-                color="error" // Màu đỏ
-                invisible={!isAuctionActive} // Ẩn nếu isAuctionActive là FALSE
+            {/* 1. Menu Icon */}
+            <IconButton
+                size="large"
+                edge="start"
+                color="inherit"
+                aria-label="menu"
+                sx={{ mr: 1 }}
+                onClick={handleMenuOpen} 
                 >
-                <IconButton 
-                    color="inherit" 
-                    aria-label="auction"
-                    onClick={() => { console.log("Auction button clicked"); }} 
-                >
-                <GavelIcon />
-                </IconButton>
-            </Badge>
-            {/* ************************************** */}
-          
-          
-          {/* ********** NÚT ĐÁNH DẤU (TIN ĐÃ LƯU) ********** */}
-            <IconButton 
-                color="inherit" 
-                aria-label="favorites"
-                onClick={handleSavedOpen} // <--- THÊM ONCLICK
-                >
-                <FavoriteBorderIcon />
+                <MenuIcon />
             </IconButton>
-           {/* ********************************************* */}
 
-            {/* ********** NÚT THÔNG BÁO (Có Badge) ********** */}
-            <Badge 
-                variant="dot"
-                color="error"
-                invisible={!hasNewNotifications} // Ẩn nếu hasNewNotifications là FALSE
-                >
-                <IconButton 
-                    color="inherit" 
-                    aria-label="notifications"
-                    onClick={handleNotiOpen} 
-                >
-                    <NotificationsNoneIcon />
-                </IconButton>
-            </Badge>
-            {/* ************************************ */}
-          
-          {/* Nút Đăng nhập */}
-          {!isLoggedIn && (
-          <Button 
-            variant="outlined" 
-            color="inherit" 
-            sx={{ 
-              textTransform: 'none', 
-              borderRadius: '8px', 
-              borderColor: '#f0f0f0',
-              marginLeft: 1,
-              paddingX: 2,
-            }}
-          >
-            Đăng nhập
-          </Button> )}
-
-        {/* Nút Quản lý tin */}
-          {isLoggedIn && (
-          <Button 
-            variant="outlined" 
-            color="inherit" 
-            sx={{ 
-              textTransform: 'none', 
-              borderRadius: '8px', 
-              borderColor: '#f0f0f0',
-              marginLeft: 1,
-              paddingX: 2,
-            }}
-          >
-            Quản lý tin
-          </Button> )}
-
-          {/* Nút Đăng tin: Dùng color="ecycle". Các style (backgroundColor, hover, color) đã ở trong customTheme.ts */}
-          <Button
-            variant="contained"
-            color="ecycle"
-            sx={{
-              // Chỉ giữ lại các style layout/padding, loại bỏ style màu/font đã có trong theme
-              fontWeight: 'bold',
-              textTransform: 'none',
-              borderRadius: '8px', 
-              paddingX: 2,
-            }}
-            startIcon={<LocalOfferIcon />}
-          >
-            Đăng tin
-          </Button>
-          
-          {/* ********** NÚT TÀI KHOẢN ********** */}
-            {/* Nút này sẽ thay đổi icon dựa trên trạng thái đăng nhập */}
-            <Button 
-                variant="outlined" 
-                color="inherit" 
-                aria-label="Tài khoản và Menu"
-                onClick={handleAccountMenuOpen} // <--- THÊM ONCLICK
-                sx={{
-                    minWidth: 0, 
-                    padding: '8px 10px', 
-                    borderColor: '#d4d4d4ff',
-                    textTransform: 'none',
-                    '& .MuiButton-startIcon, & .MuiButton-endIcon': {
-                        margin: 0, 
-                    },
+            {/* 2. Logo */}
+            <Link to="/" style={{ textDecoration: 'none' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', minWidth: '100px' }}>
+                <Box 
+                component="img" 
+                src={MyLogo}
+                alt="Ecycle Logo - Về trang chủ"
+                sx={{ 
+                    height: '42px', 
+                    cursor: 'pointer',
+                    borderRadius: '8px', 
                 }}
-                // Hiển thị Avatar khi đã đăng nhập
-                startIcon={
-                    isLoggedIn ? (
-                        <Avatar 
-                            alt={mockUser.name} 
-                            src={mockUser.avatarUrl} 
-                            sx={{ width: 24, height: 24 }}
-                        />
-                    ) : (
-                        <AccountCircleIcon sx={{ fontSize: '24px' }} />
-                    )
-                } 
-                endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '20px' }} />}
+                />
+            </Box>
+            </Link>
+
+            {/* 3. Vùng chọn Khu vực */}
+            <LocationSelect 
+                onClick={handleClick} 
+                city={selectedCity}
+                district={selectedDistrict}
+            />
+
+            {/* 4. Thanh Tìm kiếm */}
+            <Box
+            sx={{
+                backgroundColor: '#f0f0f0',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                flexGrow: 1, 
+                maxWidth: 800, 
+                marginRight: 2,
+            }}
             >
-            {/* Không có nội dung text */}
-            </Button>
-            {/* ************************************ */}
-        </Box>
-      </Toolbar>
-
-        {/* ********** POPVER TÀI KHOẢN MỚI ********** */}
-            <AccountMenuPopover
-                open={isAccountOpen}
-                anchorEl={anchorElAccount}
-                handleClose={handleAccountMenuClose}
-                isLoggedIn={isLoggedIn} // <--- TRUYỀN TRẠNG THÁI
-                user={currentUser}     // <--- TRUYỀN DỮ LIỆU
+            <InputBase
+                placeholder="Tìm xe cộ..."
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearchSubmit(); }} 
+                sx={{
+                    ml: 2,
+                    flex: 1,
+                    fontSize: '1rem',
+                    color: 'text.secondary',
+                }}
+                startAdornment={
+                    <SearchIcon sx={{ color: 'text.secondary', mr: 1, fontSize: '1.2rem' }} />
+                }
             />
-        {/* ******************************************** */}
+            <IconButton
+                type="submit"
+                onClick={handleSearchSubmit} 
+                color={"primary" as "ecycle"} 
+                aria-label="search"
+            >
+                <SearchIcon sx={{ color: 'black' }} />
+            </IconButton>
+            </Box>
+            
+            {/* 5. Các nút Hành động */}
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                
+                {/* NÚT ĐẤU GIÁ */}
+                <Badge variant="dot" color="error" invisible={!isAuctionActive}>
+                    <IconButton color="inherit" aria-label="auction"><GavelIcon /></IconButton>
+                </Badge>
+                
+                {/* NÚT ĐÁNH DẤU (TIN ĐÃ LƯU) */}
+                <IconButton color="inherit" aria-label="favorites" onClick={handleSavedOpen}><FavoriteBorderIcon /></IconButton>
+                
+                {/* NÚT THÔNG BÁO */}
+                <Badge variant="dot" color="error" invisible={!hasNewNotifications}>
+                    <IconButton color="inherit" aria-label="notifications" onClick={handleNotiOpen}>
+                        <NotificationsNoneIcon />
+                    </IconButton>
+                </Badge>
+                
+                {/* Nút Đăng nhập/Quản lý tin */}
+                {!isLoggedIn && (
+                <Button variant="outlined" color="inherit" sx={{ textTransform: 'none', borderRadius: '8px', borderColor: '#f0f0f0', marginLeft: 1, paddingX: 2, }}>
+                    Đăng nhập
+                </Button> )}
 
-       {/* Component Popover */}
-            <LocationPopover
-                open={isPopoverOpen} // Kiểm tra nếu anchorEl có giá trị
-                handleClose={handleClose}
-                anchorEl={anchorEl} // <--- TRUYỀN THAM CHIẾU NÚT
-                onSelect={handleSelectLocation}
-                currentCity={selectedCity}
-                currentDistrict={selectedDistrict}
-            />
+                {isLoggedIn && (
+                <Button variant="outlined" color="inherit" sx={{ textTransform: 'none', borderRadius: '8px', borderColor: '#f0f0f0', marginLeft: 1, paddingX: 2, }}>
+                    Quản lý tin
+                </Button> )}
 
-        {/* ********** TÍCH HỢP CATEGORY MENU MỚI ********** */}
-            <CategoryMenu
-                open={isMenuOpen}
-                anchorEl={anchorElMenu}
-                handleClose={handleMenuClose}
-            />
-        {/* ************************************************* */}
+                {/* Nút Đăng tin */}
+                <Button
+                    variant="contained"
+                    color={"primary" as "ecycle"}
+                    onClick={() => navigate("/create-post")}
+                    sx={{
+                    fontWeight: 'bold',
+                    textTransform: 'none',
+                    borderRadius: '8px', 
+                    paddingX: 2,
+                    }}
+                    startIcon={<LocalOfferIcon />}
+                >
+                    Đăng tin
+                </Button>
+                
+                {/* NÚT TÀI KHOẢN */}
+                <Button 
+                    variant="outlined" 
+                    color="inherit" 
+                    aria-label="Tài khoản và Menu"
+                    onClick={handleAccountMenuOpen} 
+                    sx={{
+                        minWidth: 0, 
+                        padding: '8px 10px', 
+                        borderColor: '#d4d4d4ff',
+                        textTransform: 'none',
+                        '& .MuiButton-startIcon, & .MuiButton-endIcon': { margin: 0 },
+                    }}
+                    startIcon={
+                        isLoggedIn ? (
+                            <Avatar alt={mockUser.name} src={mockUser.avatarUrl} sx={{ width: 24, height: 24 }}/>
+                        ) : (
+                            <AccountCircleIcon sx={{ fontSize: '24px' }} />
+                        )
+                    } 
+                    endIcon={<KeyboardArrowDownIcon sx={{ fontSize: '20px' }} />}
+                >
+                </Button>
+            </Box>
+        </Toolbar>
 
-        {/* ********** POPVER TIN ĐÃ LƯU MỚI ********** */}
-            <SavedPostsPopover
-                open={isSavedOpen}
-                anchorEl={anchorElSaved}
-                handleClose={handleSavedClose}
-                savedPosts={userSavedPosts} // Truyền dữ liệu giả định
-            />
-        {/* ******************************************** */}
+        {/* ********** CÁC POPVER ********** */}
+        <AccountMenuPopover open={isAccountOpen} anchorEl={anchorElAccount} handleClose={handleAccountMenuClose} />
 
-        {/* ********** POPVER THÔNG BÁO MỚI ********** */}
-            <NotificationPopover
-                open={isNotiOpen}
-                anchorEl={anchorElNoti}
-                handleClose={handleNotiClose}
-            />
-            {/* ******************************************** */}
-    </AppBar>
-  );
+        <LocationPropsPopover
+            open={isPopoverOpen} 
+            handleClose={handleClose}
+            anchorEl={anchorEl} 
+            onSelect={handleSelectLocation} // Đã sửa
+            currentCity={selectedCity} 
+            currentDistrict={selectedDistrict}
+            initialLocations={LOCATION_DATA} 
+        />
+
+        <CategoryMenu open={isMenuOpen} anchorEl={anchorElMenu} handleClose={handleMenuClose}/>
+        <SavedPostsPopover open={isSavedOpen} anchorEl={anchorElSaved} handleClose={handleSavedClose} savedPosts={userSavedPosts}/>
+        <NotificationPopover open={isNotiOpen} anchorEl={anchorElNoti} handleClose={handleNotiClose}/>
+        
+        </AppBar>
+    );
 };

@@ -1,3 +1,5 @@
+// src/components/PostDetailPage.tsx (ĐÃ SỬA HÀM toggleVerification)
+
 import React, { useState, useEffect, type JSX } from 'react';
 import { 
     Box, Typography, Paper, useTheme, Stack, 
@@ -34,7 +36,9 @@ import {
     SaleMethodValue, 
     type ProductData,
     getProductById, // <-- Hàm API cần dùng
-    updateProductStatusApi // <-- Hàm API giả lập cập nhật trạng thái
+    updateProductStatusApi, // <-- Hàm API giả lập cập nhật trạng thái
+    verifyProductApi, // <-- ĐÃ SỬ DỤNG
+    unverifyProductApi // <-- ĐÃ SỬ DỤNG
 } from '../services/productService'; // Cập nhật đường dẫn thực tế của bạn
 
 // Hàm helper để chuyển đổi giá trị số sang chuỗi hiển thị (Tái sử dụng từ service)
@@ -199,12 +203,44 @@ const PostDetailPage: React.FC = () => {
         }
     };
 
-    const toggleVerification = () => {
-        if (product) {
-            setProduct({ ...product, isVerified: !product.isVerified });
-            alert(`Product ${product.productId} verification toggled to ${!product.isVerified}. (Local UI update)`);
+    // --- SỬA LỖI: SỬ DỤNG API verifyProductApi/unverifyProductApi ---
+    const toggleVerification = async () => {
+        if (!product) return;
+        
+        setLoading(true);
+
+        const currentVerificationStatus = product.isVerified;
+        const productId = product.productId;
+
+        try {
+            if (currentVerificationStatus) {
+                // Nếu ĐANG được xác minh -> Hủy xác minh (Unverify)
+                await unverifyProductApi(productId);
+            } else {
+                // Nếu CHƯA được xác minh -> Xác minh (Verify)
+                await verifyProductApi(productId);
+            }
+            
+            // Cập nhật UI thành trạng thái mới
+            const newVerificationStatus = !currentVerificationStatus;
+            setProduct(prev => prev ? { 
+                ...prev, 
+                isVerified: newVerificationStatus,
+                updatedAt: new Date().toISOString() // Cập nhật thời gian
+            } : null);
+
+            alert(`Product ${productId} successfully set to ${newVerificationStatus ? 'Verified' : 'Unverified'}.`);
+
+        } catch (error) {
+            const action = currentVerificationStatus ? 'unverify' : 'verify';
+            const errorMessage = error instanceof Error ? error.message : 'Unknown verification error.';
+            alert(`Failed to ${action} product: ${errorMessage}`);
+        } finally {
+            setLoading(false);
         }
     };
+    // -----------------------------------------------------------------
+
     const handleViewAuthor = () => {
         if (product) {
             navigate(`/users/${product.sellerId}`); 
@@ -221,7 +257,7 @@ const PostDetailPage: React.FC = () => {
 
     const isPdf = product?.fileUrl?.toLowerCase().endsWith('.pdf');
     
-    // --- 4. RENDER ---
+    // --- 4. RENDER (Không đổi) ---
     if (loading && !product) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
@@ -310,6 +346,12 @@ const PostDetailPage: React.FC = () => {
                             <Box sx={{ flexGrow: 1 }}>
                                 <Typography variant="caption" color="text.secondary">Product Name:</Typography>
                                 <Typography variant="h6" fontWeight="bold">{product.productName}</Typography>
+                            </Box>
+
+                            {/* Giá sản phẩm */}
+                            <Box sx={{ flexGrow: 1 }}>
+                                <Typography variant="caption" color="text.secondary">Product Price:</Typography>
+                                <Typography variant="h6" fontWeight="bold">{product.price}</Typography>
                             </Box>
                         </Stack>
                         <Divider sx={{ mb: 2 }} />

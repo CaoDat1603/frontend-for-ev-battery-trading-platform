@@ -1,117 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     Box, Typography, Container, 
     Button, Chip, IconButton, useTheme,
-    Divider
+    Divider, CircularProgress, Alert,
+    Menu, MenuItem 
 } from '@mui/material';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CloseIcon from '@mui/icons-material/Close';
 import GridViewIcon from '@mui/icons-material/GridView';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-// Imports component mới và đã có
-import { PostCard, type Post } from '../components/PostCard'; 
+// --- Imports từ component con và service ---
+import { PostCard, type PostData} from '../components/PostCard'; 
 import { PaginationBar } from '../components/PaginationBar'; 
-// KHÔNG CÒN IMPORT ProductCategories NỮA
+import { 
+    type ProductType,
+    searchForGuest, 
+    countProduct, 
+    type ProductData, 
+    SaleMethodValue, 
+    type SaleMethod 
+} from '../services/productService'; 
+import { useLocationContext } from '../context/LocationContext'; 
 
-// --- Dữ liệu giả định (Giữ nguyên) ---
-const mockPosts: Post[] = [
-    // Tạo 10 tin đăng để test phân trang
-    {
-        id: 'p1',
-        title: 'VinFast VF e34 2022 - Pin thuê',
-        price: '590.000.000 ₫',
-        location: 'Quận 1, TP.HCM',
-        details: '2022. 15.000 km. Ô tô điện',
-        timeAgo: '29 giây trước',
-        image: 'https://placehold.co/220x180/007bff/white?text=VF+e34', 
-        isFeatured: false,
-    },
-    {
-        id: 'p2',
-        title: 'Pin Lithium 48V-30Ah cho xe máy điện',
-        price: '5.500.000 ₫',
-        location: 'Thành Phố Thủ Đức',
-        details: 'Tin tiêu biểu', 
-        timeAgo: 'Tin tiêu biểu', 
-        image: 'https://placehold.co/220x180/00b551/white?text=Pin+48V', 
-        isFeatured: true,
-    },
-    {
-        id: 'p3',
-        title: 'Xe máy điện YADEA G5 mới 99%',
-        price: '16.500.000 ₫',
-        location: 'Quận Phú Nhuận',
-        details: '2023. 500 km. Xe máy điện',
-        timeAgo: '34 giây trước',
-        image: 'https://placehold.co/220x180/ff9800/white?text=YADEA+G5', 
-        isFeatured: false,
-    },
-    {
-        id: 'p4',
-        title: 'Xe điện Xmen 50cc không cần bằng lái',
-        price: '8.500.000 ₫',
-        location: 'Thành Phố Thủ Đức',
-        details: '2021. 2 năm sử dụng. Xe máy điện',
-        timeAgo: '54 giây trước',
-        image: 'https://placehold.co/220x180/9c27b0/white?text=Xmen+EV',
-        isFeatured: false,
-    },
-    {
-        id: 'p5',
-        title: 'Bộ sạc nhanh 22kW cho xe ô tô điện',
-        price: '18.900.000 ₫',
-        location: 'Quận Thanh Xuân',
-        details: 'Mới 100%. Phụ kiện. Sạc',
-        timeAgo: '1 phút trước',
-        image: 'https://placehold.co/220x180/795548/white?text=Sac+22kW',
-        isFeatured: false,
-    },
-    { id: 'p6', title: 'Xe 6', price: '600.000.000 ₫', location: 'Q.6', details: 'Chi tiết', timeAgo: '6 phút trước', image: 'https://placehold.co/220x180/9c27b0/white?text=Xe+6', isFeatured: false },
-    { id: 'p7', title: 'Xe 7', price: '700.000.000 ₫', location: 'Q.7', details: 'Chi tiết', timeAgo: '7 phút trước', image: 'https://placehold.co/220x180/673ab7/white?text=Xe+7', isFeatured: false },
-    { id: 'p8', title: 'Xe 8', price: '800.000.000 ₫', location: 'Q.8', details: 'Chi tiết', timeAgo: '8 phút trước', image: 'https://placehold.co/220x180/f44336/white?text=Xe+8', isFeatured: false },
-    { id: 'p9', title: 'Xe 9', price: '900.000.000 ₫', location: 'Q.9', details: 'Chi tiết', timeAgo: '9 phút trước', image: 'https://placehold.co/220x180/03a9f4/white?text=Xe+9', isFeatured: false },
-    { id: 'p10', title: 'Xe 10', price: '1.000.000.000 ₫', location: 'Q.10', details: 'Chi tiết', timeAgo: '10 phút trước', image: 'https://placehold.co/220x180/4caf50/white?text=Xe+10', isFeatured: false },
-];
+// 🚨 IMPORT DỮ LIỆU TỈNH THÀNH CHÍNH XÁC
+import { VIETNAM_PROVINCES } from '../data/vietnamLocations'; 
+import { useRef } from 'react'; // Bổ sung useRef
 
-const mockBrands = [
-    { name: 'VinFast', icon: '/assets/vinfast_logo.png' },
-    { name: 'Hyundai', icon: '/assets/hyundai_logo.png' },
-    { name: 'Mercedes-Benz', icon: '/assets/mercedes_logo.png' },
-];
-const mockLocations = ['TP Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Bình Dương'];
-// --- Dữ liệu chi tiết cho Sidebar ---
+// --- TRÍCH XUẤT DỮ LIỆU ĐỊA ĐIỂM SỬ DỤNG TRONG COMPONENT ---
+// Danh sách tên các tỉnh/thành phố lớn (dùng cho sidebar)
+const VIETNAM_PROVINCE_NAMES: string[] = VIETNAM_PROVINCES.map(p => p.name);
+
+// Danh sách 4 địa điểm phổ biến để hiển thị ở khối Lọc chính
+const POPULAR_LOCATIONS: string[] = VIETNAM_PROVINCE_NAMES.slice(0, 4); 
+
+
+// --- Dữ liệu tĩnh cho Lọc KHÁC ---
 const mockPriceRanges = [
     'Giá dưới 200 triệu', 'Giá 200 triệu - 300 triệu', 
     'Giá 300 triệu - 400 triệu', 'Giá 400 triệu - 500 triệu',
-    'Giá 500 triệu - 600 triệu', 'Giá trên 600 triệu' // Thêm để kích hoạt "Xem thêm"
+    'Giá 500 triệu - 600 triệu', 'Giá trên 600 triệu' 
 ];
-const mockSeating = ['2 chỗ', '4 chỗ', '5 chỗ', '6 chỗ', '7 chỗ', '8 chỗ']; // Thêm để kích hoạt "Xem thêm"
-const mockBodyTypes = ['Sedan', 'SUV/Cross over', 'Hatchback', 'Pick-up (bán tải)', 'Coupe', 'Convertible']; // Thêm
-const mockMajorCities = [
-    'Tp Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Cần Thơ', 
-    'Hải Phòng', 'Bình Định', 'Bình Phước', 'Bình Thuận', 
-    'Cà Mau', 'Cao Bằng', 'Đắk Lắk', 'Đắk Nông', 'Điện Biên' // Thêm nhiều hơn 4 để test "Xem thêm"
+const mockSaleMethods = ['Mua ngay (Cố định)', 'Đấu giá (Auction)']; 
+
+// Định nghĩa các Tùy chọn Sắp xếp
+const sortOptions = [
+    { label: 'Tin mới nhất', value: 'newest' },
+    { label: 'Tin cũ nhất', value: 'oldest' },
 ];
 
 
-// --- Component Lọc Phụ (Sidebar) ĐƯỢC CẬP NHẬT ---
+// --- Component Lọc Phụ (Sidebar) ---
 interface FilterSectionProps {
     title: string;
     items: string[];
     isInitiallyOpen?: boolean;
-    initialDisplayLimit?: number; // Mới: Giới hạn số mục hiển thị ban đầu
+    initialDisplayLimit?: number; 
+    onItemClick?: (item: string) => void; 
 }
 
 const FilterSection: React.FC<FilterSectionProps> = ({ 
     title, 
     items, 
     isInitiallyOpen = true,
-    initialDisplayLimit = 4 // Mặc định hiển thị 4 mục
+    initialDisplayLimit = 4,
+    onItemClick
 }) => {
     const [isOpen, setIsOpen] = useState(isInitiallyOpen);
-    const [showAll, setShowAll] = useState(false); // Mới: Trạng thái hiển thị tất cả hay giới hạn
+    const [showAll, setShowAll] = useState(false); 
 
     const displayedItems = showAll ? items : items.slice(0, initialDisplayLimit);
     const hasMoreItems = items.length > initialDisplayLimit;
@@ -138,7 +96,6 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                 {isOpen ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
             </Box>
             
-            {/* Nội dung lọc */}
             {isOpen && (
                 <Box>
                     {displayedItems.map((item, index) => (
@@ -146,13 +103,13 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                             key={index} 
                             fullWidth 
                             variant="text" 
+                            onClick={() => onItemClick && onItemClick(item)} 
                             sx={{ justifyContent: 'flex-start', textTransform: 'none', py: 0.5, color: 'text.primary' }}
                         >
                             {item}
                         </Button>
                     ))}
                     
-                    {/* Nút Xem thêm / Thu gọn */}
                     {hasMoreItems && (
                         <Typography 
                             variant="body2" 
@@ -170,22 +127,311 @@ const FilterSection: React.FC<FilterSectionProps> = ({
 };
 
 
-export const EcycleCategoryPage: React.FC = () => {
+// --- PROPS CHO COMPONENT CHÍNH ---
+interface EcycleCategoryPageProps {
+    // Giá trị tìm kiếm được truyền từ LayoutMain
+    globalSearchTerm?: string; 
+    onHeaderSearch?: (searchTerm: string) => void; 
+}
+
+// -----------------------------------------------------------------
+// --- COMPONENT CHÍNH EcycleCategoryPage ---
+// -----------------------------------------------------------------
+
+export const EcycleCategoryPage: React.FC<EcycleCategoryPageProps> = ({ globalSearchTerm }) => {
     const theme = useTheme();
+    
+    // 🚨 LẤY LOCATION TỪ CONTEXT
+    const { activeLocationName } = useLocationContext(); 
+    
+    // --- State cho API và Phân trang ---
+    const itemsPerPage = 6; 
+    const [posts, setPosts] = useState<PostData[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1); 
-    const itemsPerPage = 9; 
-    const totalPosts = 85; 
+    const [totalPosts, setTotalPosts] = useState(0); 
+
+    // --- State cho Lọc ---
+    const [minPriceFilter, setMinPriceFilter] = useState<number | null>(null);
+    const [maxPriceFilter, setMaxPriceFilter] = useState<number | null>(null);
+    const [activePriceLabel, setActivePriceLabel] = useState<string | null>(null); 
+    const [activePickupAddress, setActivePickupAddress] = useState<string | undefined>(undefined); 
+    const [activeSaleMethod, setActiveSaleMethod] = useState<SaleMethod | undefined>(undefined); 
+    const [isVerifiedFilter, setIsVerifiedFilter] = useState<boolean | undefined>(undefined); 
+    
+    // --- State cho Sắp xếp và Menu ---
+    const [activeSortOption, setActiveSortOption] = useState<'newest' | 'oldest'>('newest'); 
+    const [sortMenuAnchorEl, setSortMenuAnchorEl] = useState<null | HTMLElement>(null);
+    const [priceMenuAnchorEl, setPriceMenuAnchorEl] = useState<null | HTMLElement>(null);
+    const [saleMethodMenuAnchorEl, setSaleMethodMenuAnchorEl] = useState<null | HTMLElement>(null);
+
+    // Tính toán tổng số trang dựa trên totalPosts thực tế
     const totalPages = Math.ceil(totalPosts / itemsPerPage);
 
+    // --- LOGIC HELPER ---
+
+    // Hàm chuyển đổi giá trị chuỗi thành min/max price
+    const parsePriceRange = (label: string): { min: number | null, max: number | null } => {
+        const TRIEU = 1000000;
+        if (label === 'Giá dưới 200 triệu') {
+            return { min: null, max: 200 * TRIEU };
+        }
+        if (label === 'Giá trên 600 triệu') {
+            return { min: 600 * TRIEU, max: null };
+        }
+        const match = label.match(/Giá (\d+) triệu - (\d+) triệu/);
+        if (match) {
+            const min = parseInt(match[1], 10) * TRIEU;
+            const max = parseInt(match[2], 10) * TRIEU;
+            return { min, max };
+        }
+        return { min: null, max: null };
+    };
+
+    // --- CÁC HANDLER LỌC VÀ SẮP XẾP ---
+    
+    const handlePriceFilterClick = (label: string) => {
+        const { min, max } = parsePriceRange(label);
+        setCurrentPage(1); 
+        setMinPriceFilter(min);
+        setMaxPriceFilter(max);
+        setActivePriceLabel(label);
+    };
+    
+    const handleSaleMethodClick = (methodLabel: string) => {
+        const newMethod: SaleMethod = (methodLabel.includes('Đấu giá') 
+            ? SaleMethodValue.Auction 
+            : SaleMethodValue.FixedPrice) as SaleMethod;
+            
+        setCurrentPage(1); 
+        setActiveSaleMethod(newMethod);
+    };
+
+    const handleLocationFilterClick = (location: string) => {
+        setCurrentPage(1); 
+        // 🚨 SỬ DỤNG STATE NỘI BỘ (thay thế Location Context khi user chủ động lọc)
+        setActivePickupAddress(location); 
+    };
+
+    const handleVerifiedFilterChange = (value: boolean | undefined) => {
+        setCurrentPage(1);
+        if (isVerifiedFilter === value) {
+            setIsVerifiedFilter(undefined);
+        } else {
+            setIsVerifiedFilter(value);
+        }
+    };
+    
+    const handleSortOptionClick = (optionValue: 'newest' | 'oldest') => {
+        setCurrentPage(1); 
+        setActiveSortOption(optionValue);
+        setSortMenuAnchorEl(null); 
+    };
+    
+    // --- HANDLER CHO MENU LỌC CHÍNH (Đã được thêm) ---
+    const handleClosePriceMenu = () => setPriceMenuAnchorEl(null);
+    const handleCloseSaleMethodMenu = () => setSaleMethodMenuAnchorEl(null);
+
+    const handlePriceMenuItemClick = (label: string) => {
+        handlePriceFilterClick(label);
+        handleClosePriceMenu();
+    };
+
+    const handleSaleMethodMenuItemClick = (methodLabel: string) => {
+        handleSaleMethodClick(methodLabel);
+        handleCloseSaleMethodMenu();
+    };
+
+    // --- CÁC HANDLER XÓA LỌC CỤ THỂ ---
+    
+    const handleClearPriceFilter = () => {
+        setCurrentPage(1);
+        setMinPriceFilter(null);
+        setMaxPriceFilter(null);
+        setActivePriceLabel(null);
+    };
+
+    const handleClearSaleMethodFilter = () => {
+        setCurrentPage(1);
+        setActiveSaleMethod(undefined);
+    };
+
+    const handleClearLocationFilter = () => {
+        setCurrentPage(1);
+        // 🚨 Xóa lọc địa điểm nội bộ, quay về dùng giá trị từ Context
+        setActivePickupAddress(undefined); 
+    };
+    
+    const handleClearVerifiedFilter = () => {
+        setCurrentPage(1);
+        setIsVerifiedFilter(undefined);
+    };
+
+    // Hàm xóa TẤT CẢ lọc
+    const handleClearAllFilters = () => {
+        setCurrentPage(1);
+        setMinPriceFilter(null);
+        setMaxPriceFilter(null);
+        setActivePriceLabel(null);
+        // KHÔNG clear globalSearchTerm, chỉ clear activePickupAddress
+        setActivePickupAddress(undefined); 
+        setActiveSaleMethod(undefined);
+        setIsVerifiedFilter(undefined); 
+        setActiveSortOption('newest'); 
+    };
+
+    // Hàm ánh xạ dữ liệu ProductData từ API sang PostData cho PostCard
+    const mapProductToPostData = (product: ProductData): PostData => ({
+        productId: product.productId,
+        title: product.title,
+        price: product.price || 0, 
+        pickupAddress: product.pickupAddress,
+        description: product.description, 
+        createdAt: product.createdAt, 
+        imageUrl: product.imageUrl || null, 
+        isVerified: product.isVerified || false, 
+        saleMethod: product.methodSale, 
+    });
+
+    // Gom tất cả bộ lọc vào một đối tượng duy nhất (KHÔNG bao gồm currentPage)
+    const filters = useMemo(() => {
+        
+        // 🚨 Xử lý địa chỉ: Ưu tiên lọc nội bộ, sau đó đến Context, nếu là 'Toàn quốc' thì là undefined.
+        const finalPickupAddress = activePickupAddress 
+                                     || (activeLocationName === 'Toàn quốc' ? undefined : activeLocationName);
+
+        return {
+            filterStatus: 'Available', 
+            // 🚨 Đảm bảo searchTerm luôn là string
+            searchTerm: globalSearchTerm || '',
+            minPrice: minPriceFilter,
+            maxPrice: maxPriceFilter,
+            pickupAddress: finalPickupAddress, 
+            saleMethod: activeSaleMethod,
+            isVerified: isVerifiedFilter,
+            sortBy: activeSortOption,
+        }
+    }, [
+        globalSearchTerm, minPriceFilter, maxPriceFilter, 
+        activePickupAddress, activeSaleMethod, isVerifiedFilter, 
+        activeSortOption, activeLocationName // Lắng nghe Context
+    ]);
+    
+    // Sử dụng useRef để lưu trữ giá trị filters trước đó
+    const filtersRef = useRef(filters);
+
+
+    // Hàm gọi API (Nhận page number VÀ currentFilters)
+    const fetchPosts = useCallback(async (page: number, currentFilters: typeof filters) => {
+        setLoading(true);
+        setError(null);
+        try {
+            
+            // 1. GỌI CẢ HAI HÀM API ĐỒNG THỜI
+            const [productListResult, totalCountResult] = await Promise.all([
+                // Lấy dữ liệu trang
+                searchForGuest(
+                    currentFilters.filterStatus,
+                    currentFilters.searchTerm,
+                    currentFilters.minPrice,
+                    currentFilters.maxPrice,
+                    undefined,        
+                    currentFilters.pickupAddress,
+                    currentFilters.sortBy,     
+                    currentFilters.saleMethod,
+                    currentFilters.isVerified,  
+                    1,          
+                    page,                
+                    itemsPerPage         
+                ),
+                // Lấy tổng số lượng (Đảm bảo truyền CÙNG tham số lọc)
+                countProduct(
+                    currentFilters.filterStatus,
+                    currentFilters.minPrice,
+                    currentFilters.maxPrice,
+                    undefined, 
+                    currentFilters.pickupAddress,
+                    currentFilters.saleMethod,
+                    false, 
+                    currentFilters.isVerified,
+                    1,
+                    undefined
+                ),
+            ]);
+            
+            // 2. CẬP NHẬT STATE
+            const mappedPosts = productListResult.map(mapProductToPostData);
+            setPosts(mappedPosts);
+            setTotalPosts(totalCountResult); 
+
+        } catch (err) {
+            console.error("Lỗi khi tải tin đăng:", err);
+            setError("Không thể tải danh sách tin đăng. Vui lòng thử lại sau.");
+            setPosts([]);
+            setTotalPosts(0); 
+        } finally {
+            setLoading(false);
+        }
+    }, [itemsPerPage]); // Dependency: Chỉ cần itemsPerPage
+
+    
+    // 🚨 LOGIC FIX LỖI CHUYỂN TRANG: THEO DÕI SỰ THAY ĐỔI CỦA BỘ LỌC
+    useEffect(() => {
+        // So sánh filters hiện tại với filters đã lưu trong ref (sử dụng JSON.stringify cho mục đích đơn giản)
+        if (JSON.stringify(filters) !== JSON.stringify(filtersRef.current)) {
+            // Cập nhật ref cho lần chạy tiếp theo
+            filtersRef.current = filters; 
+            
+            // Nếu bộ lọc thay đổi, ta phải reset về trang 1
+            if (currentPage !== 1) {
+                // Chỉ reset về 1, việc gọi API sẽ do useEffect [currentPage] xử lý
+                setCurrentPage(1);
+            } else {
+                // Nếu đã ở trang 1, gọi fetchPosts ngay lập tức với filters mới
+                fetchPosts(1, filters);
+            }
+        }
+    }, [filters]); 
+
+    
+    // 🚨 LOGIC FIX LỖI CHUYỂN TRANG: CHỈ GỌI API KHI CHUYỂN TRANG
+    useEffect(() => {
+        // Luôn chạy khi currentPage thay đổi
+        
+        // Kiểm tra xem filters có bị thay đổi cùng lúc hay không (trường hợp setCurrentPage(1) ở trên)
+        const filtersChanged = JSON.stringify(filters) !== JSON.stringify(filtersRef.current);
+
+        // Trường hợp 1: Chuyển từ trang 2, 3... về trang 1 (currentPage thay đổi, filters không thay đổi)
+        // Trường hợp 2: Chuyển từ trang 1 sang 2, 3...
+        // Trường hợp 3: Lần đầu tiên load/gọi API
+        
+        // Ta cần đảm bảo fetchPosts được gọi khi currentPage thay đổi (từ 1->2, 2->1)
+        
+        // Nếu currentPage không phải là 1 (chuyển tiếp), HOẶC là 1 nhưng filters không thay đổi 
+        // (người dùng nhấn nút Trang 1) thì gọi API.
+        if (currentPage !== 1 || !filtersChanged) {
+             fetchPosts(currentPage, filters);
+             window.scrollTo({ top: 0, behavior: 'smooth' }); 
+        }
+        
+        // Cập nhật filtersRef để đảm bảo filtersChange không còn đúng trong lần chạy tiếp theo
+        filtersRef.current = filters; 
+    }, [currentPage]);
+    
+    // Hàm thay đổi trang
     const handlePageChange = (page: number) => {
-        if (page >= 1 && page <= totalPages) {
+        if (page >= 1 && page <= totalPages && page !== currentPage) {
             setCurrentPage(page);
-            console.log(`Chuyển đến trang: ${page}`);
         }
     };
 
+    // Lấy nhãn Sắp xếp hiện tại
+    const currentSortLabel = sortOptions.find(opt => opt.value === activeSortOption)?.label || 'Tin mới nhất';
+
+
     // ***************************************************************
-    // KHỐI LỌC CHÍNH (renderFilterBox - Giữ nguyên)
+    // KHỐI LỌC CHÍNH (RENDER)
     // ***************************************************************
     const renderFilterBox = () => (
         <Box sx={{ 
@@ -200,7 +446,7 @@ export const EcycleCategoryPage: React.FC = () => {
                 Chọn Tác giả / Xe Điện
             </Typography>
             <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                39.389 xe điện cũ mới giá tốt nhất 27/10/2025
+                **{totalPosts.toLocaleString()}** xe điện cũ mới giá tốt nhất 27/10/2025
             </Typography>
 
             {/* HÀNG LỌC CHÍNH (Chips) */}
@@ -209,21 +455,118 @@ export const EcycleCategoryPage: React.FC = () => {
                     label="Lọc" 
                     sx={{ bgcolor: theme.palette.primary.main, color: 'white', fontWeight: 'bold' }}
                 />
-                <Button variant="outlined" endIcon={<KeyboardArrowDownIcon />} sx={{ textTransform: 'none', borderRadius: 2 }}>
+                
+                {/* LỌC GIÁ: Triển khai Menu */}
+                <Button 
+                    variant="outlined" 
+                    endIcon={<KeyboardArrowDownIcon />} 
+                    sx={{ textTransform: 'none', borderRadius: 2 }}
+                    onClick={(event) => setPriceMenuAnchorEl(event.currentTarget)}
+                >
                     Giá
                 </Button>
-                <Button variant="outlined" endIcon={<KeyboardArrowDownIcon />} sx={{ textTransform: 'none', borderRadius: 2 }}>
-                    Năm sản xuất
+                {/* MENU GIÁ */}
+                <Menu
+                    anchorEl={priceMenuAnchorEl}
+                    open={Boolean(priceMenuAnchorEl)}
+                    onClose={handleClosePriceMenu}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                >
+                    {mockPriceRanges.map((label) => (
+                        <MenuItem 
+                            key={label} 
+                            onClick={() => handlePriceMenuItemClick(label)}
+                            selected={activePriceLabel === label}
+                        >
+                            {label}
+                        </MenuItem>
+                    ))}
+                </Menu>
+                
+                {/* LỌC PHƯƠNG THỨC BÁN (Loại tin): Triển khai Menu */}
+                <Button 
+                    variant="outlined" 
+                    endIcon={<KeyboardArrowDownIcon />} 
+                    sx={{ textTransform: 'none', borderRadius: 2 }}
+                    onClick={(event) => setSaleMethodMenuAnchorEl(event.currentTarget)}
+                >
+                    Loại tin
                 </Button>
-                <Button variant="outlined" endIcon={<KeyboardArrowDownIcon />} sx={{ textTransform: 'none', borderRadius: 2 }}>
-                    Hãng xe
-                </Button>
-                <Button variant="outlined" endIcon={<KeyboardArrowDownIcon />} sx={{ textTransform: 'none', borderRadius: 2 }}>
-                    Tình trạng
-                </Button>
+                {/* MENU PHƯƠNG THỨC BÁN */}
+                <Menu
+                    anchorEl={saleMethodMenuAnchorEl}
+                    open={Boolean(saleMethodMenuAnchorEl)}
+                    onClose={handleCloseSaleMethodMenu}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                >
+                    {mockSaleMethods.map((label) => {
+                        const method = label.includes('Đấu giá') ? SaleMethodValue.Auction : SaleMethodValue.FixedPrice;
+                        return (
+                            <MenuItem 
+                                key={label} 
+                                onClick={() => handleSaleMethodMenuItemClick(label)}
+                                selected={activeSaleMethod === method}
+                            >
+                                {label}
+                            </MenuItem>
+                        );
+                    })}
+                </Menu>
+                
+                {/* LỌC IS VERIFIED */}
+                <Chip
+                    label="Đã kiểm định"
+                    icon={<CheckCircleIcon />}
+                    onClick={() => handleVerifiedFilterChange(true)}
+                    onDelete={isVerifiedFilter === true ? handleClearVerifiedFilter : undefined}
+                    deleteIcon={<CloseIcon />}
+                    color={isVerifiedFilter === true ? 'primary' : 'default'}
+                    variant={isVerifiedFilter === true ? 'filled' : 'outlined'}
+                    sx={{ textTransform: 'none', fontWeight: 'medium' }}
+                />
+
+                {/* HIỂN THỊ CHIP LỌC GIÁ ĐANG HOẠT ĐỘNG */}
+                {activePriceLabel && (
+                    <Chip
+                        label={activePriceLabel}
+                        onDelete={handleClearPriceFilter} 
+                        deleteIcon={<CloseIcon />}
+                        color="secondary"
+                        variant="outlined"
+                        sx={{ textTransform: 'none', fontWeight: 'medium' }}
+                    />
+                )}
+                
+                {/* HIỂN THỊ CHIP LỌC PHƯƠNG THỨC BÁN HÀNG */}
+                {activeSaleMethod !== undefined && (
+                    <Chip
+                        label={activeSaleMethod === SaleMethodValue.FixedPrice ? 'Mua ngay' : 'Đấu giá'}
+                        onDelete={handleClearSaleMethodFilter} 
+                        deleteIcon={<CloseIcon />}
+                        color="secondary"
+                        variant="outlined"
+                        sx={{ textTransform: 'none', fontWeight: 'medium' }}
+                    />
+                )}
+                
+                {/* HIỂN THỊ CHIP LỌC KHU VỰC NỘI BỘ */}
+                {activePickupAddress && (
+                    <Chip
+                        label={`Địa điểm: ${activePickupAddress}`}
+                        onDelete={handleClearLocationFilter} 
+                        deleteIcon={<CloseIcon />}
+                        color="secondary"
+                        variant="outlined"
+                        sx={{ textTransform: 'none', fontWeight: 'medium' }}
+                    />
+                )}
+                
                 <Button 
                     variant="text" 
                     sx={{ color: theme.palette.text.secondary, textTransform: 'none', ml: 'auto' }}
+                    onClick={handleClearAllFilters} 
                 >
                     Xóa lọc
                 </Button>
@@ -232,16 +575,18 @@ export const EcycleCategoryPage: React.FC = () => {
             {/* LỌC THEO KHU VỰC VÀ ĐỊA ĐIỂM */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', borderTop: '1px solid #eee', pt: 2 }}>
                 <Typography variant="body2" fontWeight="medium">Khu vực:</Typography>
-                {mockLocations.map((loc, index) => (
+                {POPULAR_LOCATIONS.map((loc, index) => ( 
                     <Button 
                         key={index}
                         variant="contained" 
                         size="small"
+                        onClick={() => handleLocationFilterClick(loc)} 
                         sx={{ 
                             textTransform: 'none', 
                             borderRadius: 2,
-                            bgcolor: theme.palette.grey[100],
-                            color: theme.palette.text.primary,
+                            // Dùng filters.pickupAddress để check trạng thái đang chọn
+                            bgcolor: filters.pickupAddress === loc ? theme.palette.primary.light : theme.palette.grey[100],
+                            color: filters.pickupAddress === loc ? theme.palette.primary.contrastText : theme.palette.text.primary,
                             fontWeight: 'normal',
                             '&:hover': { bgcolor: theme.palette.grey[200] }
                         }}
@@ -262,21 +607,6 @@ export const EcycleCategoryPage: React.FC = () => {
                     Gần tôi
                 </Button>
             </Box>
-
-            {/* LỌC THEO HÃNG XE (BRAND LOGOS) */}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'space-between', mt: 3, px: 3 }}>
-                {mockBrands.map((brand, index) => (
-                    <Box key={index} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
-                        <Box
-                            component="img"
-                            src={brand.icon}
-                            alt={brand.name}
-                            sx={{ width: 40, height: 40, objectFit: 'contain', mb: 0.5 }}
-                        />
-                        <Typography variant="caption" color="text.primary">{brand.name}</Typography>
-                    </Box>
-                ))}
-            </Box>
         </Box>
     );
 
@@ -295,12 +625,11 @@ export const EcycleCategoryPage: React.FC = () => {
                 </Typography>
                 
                 <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-                    39.389 xe điện cũ mới giá tốt nhất 27/10/2025
+                    {totalPosts.toLocaleString()} xe điện cũ mới giá tốt nhất 27/10/2025
                 </Typography>
 
-                {/* HIỂN THỊ KHỐI LỌC CHÍNH */}
+                {/* KHỐI LỌC CHÍNH */}
                 {renderFilterBox()}
-
 
                 {/* DANH SÁCH SẢN PHẨM VÀ SIDEBAR LỌC CHI TIẾT */}
                 <Box 
@@ -318,14 +647,37 @@ export const EcycleCategoryPage: React.FC = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography fontWeight="bold" sx={{ mr: 2 }}>Tất cả</Typography>
                             <Typography color="text.secondary">Sắp xếp:</Typography>
+                            
                             <Button 
                                 variant="text" 
                                 endIcon={<KeyboardArrowDownIcon />}
-                                sx={{ textTransform: 'none', fontWeight: 'bold', color: theme.palette.text.primary }}
-                                onClick={() => alert('Mở menu Sắp xếp')}
+                                sx={{ 
+                                    textTransform: 'none', 
+                                    fontWeight: 'bold', 
+                                    color: theme.palette.text.primary 
+                                }}
+                                onClick={(event) => setSortMenuAnchorEl(event.currentTarget)}
                             >
-                                Tin mới nhất
+                                {currentSortLabel}
                             </Button>
+                            
+                            {/* MENU SẮP XẾP */}
+                            <Menu
+                                anchorEl={sortMenuAnchorEl}
+                                open={Boolean(sortMenuAnchorEl)}
+                                onClose={() => setSortMenuAnchorEl(null)}
+                            >
+                                {sortOptions.map((option) => (
+                                    <MenuItem 
+                                        key={option.value} 
+                                        onClick={() => handleSortOptionClick(option.value as 'newest' | 'oldest')}
+                                        selected={option.value === activeSortOption}
+                                    >
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Menu>
+
                         </Box>
                         <IconButton size="small" sx={{ borderRadius: 2 }}>
                             <GridViewIcon />
@@ -340,24 +692,40 @@ export const EcycleCategoryPage: React.FC = () => {
                             width: { xs: '100%', md: '75%' }, 
                             pr: { xs: 0, md: 2 } 
                         }}>
-                            <Box sx={{ 
-                                display: 'flex', 
-                                flexWrap: 'wrap', 
-                            }}>
-                                {mockPosts.map((post) => (
-                                    <Box
-                                        key={post.id}
-                                        sx={{
-                                            width: { xs: '100%', sm: '50%', md: '33.333%' }, 
-                                            pb: 2, 
-                                            display: 'flex', 
-                                            justifyContent: 'center' 
-                                        }}
-                                    >
-                                        <PostCard post={post} />
-                                    </Box>
-                                ))}
-                            </Box>
+                            {/* Loading, Error, Empty State */}
+                            {loading && (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                                    <CircularProgress />
+                                    <Typography sx={{ ml: 2 }}>Đang tải tin đăng...</Typography>
+                                </Box>
+                            )}
+                            {error && (
+                                <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>
+                            )}
+                            {!loading && !error && posts.length === 0 && (
+                                <Typography variant="subtitle1" color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
+                                    Không tìm thấy tin đăng nào.
+                                </Typography>
+                            )}
+
+                            {/* Danh sách Tin đăng */}
+                            {!loading && !error && posts.length > 0 && (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
+                                    {posts.map((post) => (
+                                        <Box
+                                            key={post.productId}
+                                            sx={{
+                                                width: { xs: '100%', sm: '50%', md: '33.333%' }, 
+                                                pb: 2, 
+                                                display: 'flex', 
+                                                justifyContent: 'center' 
+                                            }}
+                                        >
+                                            <PostCard post={post} />
+                                        </Box>
+                                    ))}
+                                </Box>
+                            )}
                         </Box>
 
                         {/* CỘT PHỤ: Sidebar Lọc (25%) */}
@@ -368,17 +736,20 @@ export const EcycleCategoryPage: React.FC = () => {
                         }}>
                             <Box sx={{ p: 0, position: 'sticky', top: 80 }}>
                                 
-                                {/* Lọc theo Khu vực (Mua bán ô tô) */}
+                                {/* Lọc theo Khu vực */}
                                 <FilterSection 
-                                    title="Mua bán ô tô" 
-                                    items={mockMajorCities} 
+                                    title="Lọc theo khu vực" 
+                                    items={VIETNAM_PROVINCE_NAMES} // 🚨 Dữ liệu từ VIETNAM_PROVINCES
+                                    onItemClick={handleLocationFilterClick} 
                                 />
                                 <Divider sx={{ mb: 2 }} />
-
-                                {/* Lọc theo Số chỗ */}
-                                <FilterSection 
-                                    title="Lọc theo số chỗ" 
-                                    items={mockSeating} 
+                                
+                                {/* Lọc theo PHƯƠNG THỨC BÁN HÀNG */}
+                                <FilterSection
+                                    title="Phương thức bán hàng"
+                                    items={mockSaleMethods}
+                                    onItemClick={handleSaleMethodClick}
+                                    initialDisplayLimit={2}
                                 />
                                 <Divider sx={{ mb: 2 }} />
 
@@ -386,16 +757,10 @@ export const EcycleCategoryPage: React.FC = () => {
                                 <FilterSection 
                                     title="Lọc theo khoảng giá" 
                                     items={mockPriceRanges} 
+                                    onItemClick={handlePriceFilterClick} 
                                 />
                                 <Divider sx={{ mb: 2 }} />
                                 
-                                {/* Lọc theo Kiểu dáng */}
-                                <FilterSection 
-                                    title="Lọc theo kiểu dáng" 
-                                    items={mockBodyTypes} 
-                                    isInitiallyOpen={false} 
-                                />
-
                             </Box>
                         </Box>
 
@@ -403,11 +768,13 @@ export const EcycleCategoryPage: React.FC = () => {
                 </Box>
                 
                 {/* PHÂN TRANG */}
-                <PaginationBar 
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={handlePageChange}
-                />
+                {!loading && !error && totalPages > 1 && (
+                    <PaginationBar 
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                    />
+                )}
 
             </Container>
         </Box>
