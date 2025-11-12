@@ -32,11 +32,27 @@ import { useLocationContext } from '../context/LocationContext';
 // Import constants & data
 import { LOCATION_STORAGE_KEY } from '../utils/constants';
 import { VIETNAM_PROVINCES, type Province, type District } from '../data/vietnamLocations'; 
+import { UserService } from "../services/userService"; // 🚨 IMPORT SERVICE
 
+const BASE_URL = "http://localhost:8000"; // Đảm bảo BASE_URL là chính xác
+const getFullUrl = (path: string | null) => {
+    if (!path) return "";
+    return path.startsWith("http") ? path : `${BASE_URL}${path}`;
+};
 
 // --- DỮ LIỆU CỐ ĐỊNH ---
 const ALL_VIETNAM_OPTION: Province = { id: 0, name: 'Toàn quốc', districts: [] };
 const LOCATION_DATA = VIETNAM_PROVINCES;
+
+// Dữ liệu User tạm (nên được định nghĩa ở đây hoặc file types)
+interface UserData {
+    name: string;
+    avatarUrl: string;
+    followers: number;
+    following: number;
+    eCoin: number;
+}
+
 
 // --- Dữ liệu giả định (Giữ nguyên) ---
 const mockSavedPosts: SavedPost[] = [
@@ -48,7 +64,9 @@ const mockSavedPosts: SavedPost[] = [
         details: '35.852 km',
     }
 ];
-const mockUser = {
+
+// Dữ liệu mock (fallback)
+const mockUser: UserData = {
     name: 'Đạt Cao',
     avatarUrl: 'https://cdn.chotot.com/uac2/26732157', 
     followers: 0,
@@ -103,34 +121,39 @@ const LocationSelect: React.FC<LocationSelectProps> = ({ onClick, city, district
 
 // --- PROPS MỚI CHO HEADER ---
 interface HeaderProps {
-    // Chỉ truyền searchTerm, vì location sẽ được quản lý bởi Context
     onSearch: (searchTerm: string) => void; 
 }
 
 // --- COMPONENT CHÍNH: HEADER ---
 export const Header: React.FC<HeaderProps> = ({ onSearch }) => { 
     const navigate = useNavigate();
-    // LẤY HÀM CẬP NHẬT CONTEXT
     const { setActiveLocationName } = useLocationContext(); 
 
-    // ********** STATE QUẢN LÝ TÌM KIẾM **********
+    // ********** STATE TÌM KIẾM & VỊ TRÍ **********
     const [searchTerm, setSearchTerm] = useState(''); 
-
-    // ********** STATE VỊ TRÍ **********
     const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
     const [selectedCity, setSelectedCity] = useState<Province | null>(ALL_VIETNAM_OPTION); 
     const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
     const isPopoverOpen = Boolean(anchorEl);
 
+    // ********** STATE TÀI KHOẢN MỚI **********
+    const [isLoggedIn, setIsLoggedIn] = useState(false); // Bắt đầu là false
+    const [currentUser, setCurrentUser] = useState<UserData | null>(null); 
+    
     // ********** LOGIC TÌM KIẾM QUAN TRỌNG **********
     const handleSearchSubmit = () => {
-        // GỌI CALLBACK CHO SEARCH
         onSearch(searchTerm); 
-        // Sau khi tìm kiếm, bạn thường muốn chuyển hướng:
         // navigate(`/car-ecycle?q=${searchTerm}`);
     };
 
-    // ********** HIỆU ỨNG 1: ĐỌC DỮ LIỆU TỪ LOCAL STORAGE **********
+    const handleLogoutComplete = () => {
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+        // Bạn có thể muốn gọi lại fetchProfile nếu cần, nhưng set state là đủ.
+        handleAccountMenuClose(); // Đảm bảo menu đóng
+    };
+
+    // ********** HIỆU ỨNG 1: ĐỌC DỮ LIỆU VỊ TRÍ TỪ LOCAL STORAGE **********
     useEffect(() => {
         try {
             const savedLocation = localStorage.getItem(LOCATION_STORAGE_KEY);
@@ -142,19 +165,48 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                 setSelectedCity(initialCity);
                 setSelectedDistrict(initialDistrict);
                 
-                // CẬP NHẬT CONTEXT KHI LOAD TỪ LOCAL STORAGE
                 const initialLocationName = initialDistrict?.name || initialCity?.name || ALL_VIETNAM_OPTION.name;
                 setActiveLocationName(initialLocationName); 
             } else {
-                // Đảm bảo Context được thiết lập nếu không có trong Local Storage
                 setActiveLocationName(ALL_VIETNAM_OPTION.name); 
             }
         } catch (error) {
             console.error("Could not load location from local storage", error);
         }
     }, []); 
+    
+    // ********** HIỆU ỨNG 2: LẤY THÔNG TIN USER (Chỉ chạy 1 lần khi mount) **********
+    useEffect(() => {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+            setIsLoggedIn(false);
+            setCurrentUser(null);
+            return;
+        }
 
-    // ********** XỬ LÝ CHỌN VỊ TRÍ VÀ CẬP NHẬT CONTEXT **********
+        const fetchProfile = async () => {
+            try {
+                const data = await UserService.getProfile();
+                const avatarPath = data.avatar ? "/identity" + data.avatar : ""; 
+                const finalAvatarUrl = getFullUrl(avatarPath);
+                setCurrentUser({
+                    name: data.userFullName,
+                    avatarUrl: finalAvatarUrl,
+                    followers: 0,
+                    following: 0,
+                    eCoin: 0,
+                });
+                setIsLoggedIn(true);
+            } catch (err) {
+                console.error("Không lấy được user:", err);
+                setIsLoggedIn(false);
+            }
+        };
+
+        fetchProfile(); // 🚨 Gọi API chỉ MỘT LẦN khi component mount
+    }, []); // 🚨 Dependency array rỗng đảm bảo chỉ chạy 1 lần
+
+    // ********** XỬ LÝ CHỌN VỊ TRÍ **********
     const handleSelectLocation = (city: Province | null, district: District | null) => {
         
         const finalCity = city || ALL_VIETNAM_OPTION;
@@ -164,7 +216,6 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
         setSelectedDistrict(finalDistrict);
         handleClose(); 
 
-        // ********** GHI DỮ LIỆU MỚI VÀO LOCAL STORAGE **********
         try {
             const locationToSave = JSON.stringify({ 
                 city: finalCity, 
@@ -175,12 +226,8 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
             console.error("Could not save location to local storage", error);
         }
         
-        // 🚨 CẬP NHẬT CONTEXT VỚI VỊ TRÍ MỚI
         const locationName = finalDistrict?.name || finalCity?.name || ALL_VIETNAM_OPTION.name;
         setActiveLocationName(locationName); 
-        
-        // Không cần gọi onSearch ở đây, EcycleCategoryPage sẽ tự động reload
-        // nhờ việc lắng nghe Context.
     };
 
     const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -194,7 +241,6 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
     // --- Các state/hàm khác (Giữ nguyên) ---
     const [anchorElAccount, setAnchorElAccount] = useState<null | HTMLElement>(null);
     const isAccountOpen = Boolean(anchorElAccount);
-    const isLoggedIn = true; 
     
     const handleAccountMenuOpen = (event: ReactMouseEvent<HTMLElement>) => { setAnchorElAccount(event.currentTarget); };
     const handleAccountMenuClose = () => { setAnchorElAccount(null); };
@@ -218,6 +264,10 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
     const [hasNewNotifications, setHasNewNotifications] = useState(true); 
     const [isAuctionActive, setIsAuctionActive] = useState(true); 
     const userSavedPosts: SavedPost[] = mockSavedPosts; 
+
+    // Dùng dữ liệu thật nếu đã load, nếu không dùng mockUser
+    const userDisplayData = currentUser || mockUser; 
+
 
 // **********************************************************************************
     return (
@@ -321,16 +371,37 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                 
                 {/* Nút Đăng nhập/Quản lý tin */}
                 {!isLoggedIn && (
-                <Button variant="outlined" color="inherit" sx={{ textTransform: 'none', borderRadius: '8px', borderColor: '#f0f0f0', marginLeft: 1, paddingX: 2, }}>
+                <Button variant="outlined" 
+                    color="inherit" sx={{ textTransform: 'none', borderRadius: '8px', borderColor: '#f0f0f0', marginLeft: 1, paddingX: 2, }}
+                    onClick={() => navigate("/login")}>
                     Đăng nhập
                 </Button> )}
 
                 {isLoggedIn && (
-                <Button variant="outlined" color="inherit" sx={{ textTransform: 'none', borderRadius: '8px', borderColor: '#f0f0f0', marginLeft: 1, paddingX: 2, }}>
+                <Button variant="outlined" color="inherit" 
+                sx={{ textTransform: 'none', borderRadius: '8px', borderColor: '#f0f0f0', marginLeft: 1, paddingX: 2, }}
+                onClick={() => navigate("/manage-posts")}>
                     Quản lý tin
                 </Button> )}
 
+                {/* Nút Đăng nhập/Quản lý tin */}
+                {!isLoggedIn && (
+                <Button
+                    variant="contained"
+                    color={"primary" as "ecycle"}
+                    onClick={() => navigate("/register")}
+                    sx={{
+                    fontWeight: 'bold',
+                    textTransform: 'none',
+                    borderRadius: '8px', 
+                    paddingX: 2,
+                    }}
+                    startIcon={<LocalOfferIcon />}
+                >
+                    Đăng ký
+                </Button> )}
                 {/* Nút Đăng tin */}
+                {isLoggedIn && (
                 <Button
                     variant="contained"
                     color={"primary" as "ecycle"}
@@ -344,7 +415,7 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                     startIcon={<LocalOfferIcon />}
                 >
                     Đăng tin
-                </Button>
+                </Button>)}
                 
                 {/* NÚT TÀI KHOẢN */}
                 <Button 
@@ -361,7 +432,7 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                     }}
                     startIcon={
                         isLoggedIn ? (
-                            <Avatar alt={mockUser.name} src={mockUser.avatarUrl} sx={{ width: 24, height: 24 }}/>
+                            <Avatar alt={userDisplayData.name} src={userDisplayData.avatarUrl} sx={{ width: 24, height: 24 }}/>
                         ) : (
                             <AccountCircleIcon sx={{ fontSize: '24px' }} />
                         )
@@ -373,13 +444,20 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
         </Toolbar>
 
         {/* ********** CÁC POPVER ********** */}
-        <AccountMenuPopover open={isAccountOpen} anchorEl={anchorElAccount} handleClose={handleAccountMenuClose} />
+        <AccountMenuPopover 
+            open={isAccountOpen} 
+            anchorEl={anchorElAccount} 
+            handleClose={handleAccountMenuClose} 
+            isLoggedIn={isLoggedIn}
+            user={currentUser} 
+            onLogoutSuccess={handleLogoutComplete}
+        />
 
         <LocationPropsPopover
             open={isPopoverOpen} 
             handleClose={handleClose}
             anchorEl={anchorEl} 
-            onSelect={handleSelectLocation} // Đã sửa
+            onSelect={handleSelectLocation} 
             currentCity={selectedCity} 
             currentDistrict={selectedDistrict}
             initialLocations={LOCATION_DATA} 

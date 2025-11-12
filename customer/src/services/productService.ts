@@ -16,6 +16,7 @@ export const SaleMethodValue = {
     FixedPrice: 0,
     Auction: 1,
 } as const;
+
 export type SaleMethod = (typeof SaleMethodValue)[keyof typeof SaleMethodValue];
 
 export const ProductType = {
@@ -54,7 +55,6 @@ export interface ProductData {
 export interface CreateProductRequest {
     title: string;
     price: number; // Sử dụng number cho decimal
-    sellerId: number;
     pickupAddress: string;
     productName: string;
     description: string;
@@ -66,10 +66,19 @@ export interface CreateProductRequest {
     imageUrl?: File | Blob | null; // File hoặc Blob cho upload
 }
 
+interface UpdateProductStatusRequest {
+    productId: number;
+    newStatus: ProductStatus;
+}
+
+interface UpdateSaleMeThodRequest {
+    productId: number;
+    newMethod: SaleMethod;
+}
 
 // --- CONFIG & API URLs ---
-const BASE_URL = 'http://localhost:8102'; // <-- URL CƠ SỞ ĐÃ ĐỊNH NGHĨA
-const PRODUCT_API_URL = `${BASE_URL}/api/Products`; 
+const BASE_URL = 'http://localhost:8000/'; // <-- URL CƠ SỞ ĐÃ ĐỊNH NGHĨA
+const PRODUCT_API_URL = `${BASE_URL}/api/products`; 
 
 
 // --- HELPER FUNCTION: THÊM TIỀN TỐ URL ---
@@ -89,7 +98,34 @@ const prefixUrl = (path: string | null): string | null => {
     }
     // Đảm bảo không có dấu '/' thừa hoặc thiếu giữa BASE_URL và path
     const trimmedPath = path.startsWith('/') ? path.substring(1) : path;
-    return `${BASE_URL}/${trimmedPath}`;
+    return `${BASE_URL}products/${trimmedPath}`;
+};
+
+/**
+ * Lấy Bearer Token từ localStorage và tạo Headers cho request được bảo vệ.
+ * @returns Object chứa Headers
+ * @throws Error nếu không tìm thấy token.
+ */
+const getAuthHeaders = (contentType: string = 'application/json') => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+        throw new Error("Authorization token not found. Please log in.");
+    }
+
+    const headers: Record<string, string> = {
+        'Authorization': `Bearer ${token}`,
+        'accept': 'application/json', // Mặc định chấp nhận JSON
+    };
+    
+    // Chỉ thêm Content-Type nếu nó không phải là 'multipart/form-data' 
+    // (Vì FormData sẽ tự động set Content-Type)
+    if (contentType === 'application/json') {
+        headers['Content-Type'] = 'application/json';
+    } else if (contentType !== 'multipart/form-data') {
+        headers['Content-Type'] = contentType;
+    }
+    
+    return headers;
 };
 
 // --- SERVICE FUNCTIONS ---
@@ -155,7 +191,7 @@ export async function searchForGuest(
     // 4. Chuyển đổi Object thành chuỗi query (đảm bảo không có & thừa)
     const queryParams = new URLSearchParams(params).toString();
     
-    const url = `${PRODUCT_API_URL}/search/all?${queryParams}`;
+    const url = `${PRODUCT_API_URL}/search?${queryParams}`;
 
     try {
         console.log(`Fetching: ${url}`);
@@ -201,12 +237,15 @@ export async function searchForSeller(
     isSpam?: boolean | null,
     isVerified?: boolean | null, 
     productType?: ProductType | null,
-    createAt?: string | null
+    createAt?: string | null,
+
+    pageNumber?: number | null,
+    pageSize?: number | null
 ): Promise<ProductData[]> {
     
     // Pagination & Sorting (Default)
-    const pageNumber = 1;
-    const pageSize = 50; 
+    pageNumber = pageNumber || 1;
+    pageSize = pageSize || 20;
     
     // 1. Định nghĩa TẤT CẢ các tham số (bao gồm cả mặc định)
     const allParams = {
@@ -251,8 +290,12 @@ export async function searchForSeller(
     const url = `${PRODUCT_API_URL}/search/all?${queryParams}`;
 
     try {
+        const headers = getAuthHeaders();
+
         console.log(`Fetching: ${url}`);
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: headers, 
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -281,7 +324,7 @@ export async function searchForSeller(
 
 export async function countProduct(
     filterStatus: string, 
-    //searchTerm: string, 
+    searchTerm?: string | null,
     minPrice?: number | null, 
     maxPrice?: number | null, 
     sellerId?: number | null, 
@@ -296,7 +339,7 @@ export async function countProduct(
     // 1. Định nghĩa TẤT CẢ các tham số (bao gồm cả mặc định)
     const allParams = {        
         // Tùy chọn (Filters)
-        //q: searchTerm,
+        q: searchTerm,
         // filterDate (startDate) được giả định là không có trong API mẫu, tạm bỏ qua việc truyền nó
         minPrice: minPrice ? String(minPrice) : null,
         maxPrice: maxPrice ? String(maxPrice) : null,
@@ -333,6 +376,86 @@ export async function countProduct(
     try {
         console.log(`Fetching count: ${url}`);
         const response = await fetch(url);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch product count. Status: ${response.status}. Error: ${errorText}`);
+        }
+        
+        // SỬA LỖI RESPONSE: Đọc dưới dạng văn bản và chuyển sang số nguyên
+        const resultText = await response.text();
+        const count = parseInt(resultText.trim(), 10);
+        
+        // Kiểm tra xem kết quả có phải là một số hợp lệ không
+        if (isNaN(count)) {
+            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+        }
+        
+        return count;
+
+    } catch (error) {
+        console.error("Error in countProduct:", error);
+        throw new Error(`Could not connect to the product count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+export async function countProductSeller(
+    filterStatus: string, 
+    searchTerm?: string | null,
+    minPrice?: number | null, 
+    maxPrice?: number | null, 
+    sellerId?: number | null, 
+    pickupAddress?: string | null, 
+    saleMethod?: SaleMethod | null,
+    isSpam?: boolean | null,
+    isVerified?: boolean | null, 
+    productType?: ProductType | null,
+    createAt?: string | null
+): Promise<number> {
+    
+    // 1. Định nghĩa TẤT CẢ các tham số (bao gồm cả mặc định)
+    const allParams = {        
+        // Tùy chọn (Filters)
+        q: searchTerm,
+        // filterDate (startDate) được giả định là không có trong API mẫu, tạm bỏ qua việc truyền nó
+        minPrice: minPrice ? String(minPrice) : null,
+        maxPrice: maxPrice ? String(maxPrice) : null,
+        sellerId: sellerId ? String(sellerId) : null,
+        pickupAddress: pickupAddress, 
+        saleMethod: saleMethod !== null && saleMethod !== undefined ? String(saleMethod) : null,
+        isSpam: isSpam !== null && isSpam !== undefined ? String(isSpam) : null,
+        isVerified: isVerified !== null && isVerified !== undefined ? String(isVerified) : null,
+        productType: productType !== null && productType !== undefined ? String(productType) : null,
+        createAt: createAt || null,
+    };
+    
+    // 2. Xây dựng Object params CHỈ chứa giá trị hợp lệ
+    const params: Record<string, string> = {};
+
+    // Thêm các tham số có giá trị (loại bỏ null, undefined, và chuỗi rỗng)
+    Object.entries(allParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && String(value).trim() !== '') { 
+            params[key] = String(value);
+        }
+    });
+
+    // 3. Xử lý logic đặc biệt cho Status (chỉ thêm nếu KHÔNG phải là 'All')
+    if (filterStatus !== 'All' && filterStatus) {
+        // Chuyển chuỗi ('Pending') sang giá trị số (0)
+        params.status = String(ProductStatusValue[filterStatus as keyof typeof ProductStatusValue]);
+    }
+    
+    // 4. Chuyển đổi Object thành chuỗi query (đảm bảo không có & thừa)
+    const queryParams = new URLSearchParams(params).toString();
+    
+    const url = `${PRODUCT_API_URL}/count-seller?${queryParams}`;
+
+    try {
+        const headers = getAuthHeaders();
+        console.log(`Fetching count: ${url}`);
+        const response = await fetch(url, {
+            headers: headers, 
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -402,13 +525,13 @@ export async function deletedProductApi(
     productId: number
 ): Promise<{ message: string }> {
     const unverifyUrl = `${PRODUCT_API_URL}/${productId}`;
+
     console.log(`DELETE ${unverifyUrl}`);
     try {
+        const headers = getAuthHeaders();
         const response = await fetch(unverifyUrl, {
             method: 'DELETE', // Sử dụng DELETE
-            headers: {
-                'accept': '*/*'
-            },
+            headers: headers, 
         });
         
         if (response.ok) {
@@ -462,7 +585,6 @@ export async function createProductApi(
     formData.append('Title', request.title);
     // Sử dụng String() để đảm bảo Price là chuỗi
     formData.append('Price', String(request.price)); 
-    formData.append('SellerId', String(request.sellerId));
     formData.append('PickupAddress', request.pickupAddress);
     formData.append('ProductName', request.productName);
     formData.append('Description', request.description);
@@ -491,12 +613,13 @@ export async function createProductApi(
     }
 
     try {
+        const headersWithAuth = getAuthHeaders('multipart/form-data');
+
+        const { 'Content-Type': _, ...finalHeaders } = headersWithAuth;
+
         const response = await fetch(url, {
             method: 'POST',
-            // KHÔNG set 'Content-Type: multipart/form-data' thủ công
-            headers: {
-                'accept': 'application/json' 
-            },
+            headers: finalHeaders, 
             body: formData,
         });
 
@@ -523,6 +646,89 @@ export async function createProductApi(
         console.error('Error in createProductApi:', error);
         throw new Error(
             `Network or processing error when creating product: ${
+                error instanceof Error ? error.message : 'Unknown error'
+            }`
+        );
+    }
+}
+
+/**
+ * Cập nhật trạng thái sản phẩm (Real API Call).
+ */
+export async function updateProductStatusApi(
+    productId: number,
+    newStatus: ProductStatus
+): Promise<{ message: string }> {
+    const requestBody: UpdateProductStatusRequest = { productId, newStatus };
+    const updateUrl = `${PRODUCT_API_URL}/status`;
+    try {
+        const headers = getAuthHeaders();
+
+        console.log(`${updateUrl}`);
+        const response = await fetch(updateUrl, {
+            method: 'PATCH',
+            headers: headers, 
+            body: JSON.stringify(requestBody),
+        });
+
+        // ✅ Kiểm tra phản hồi và xử lý hợp lệ
+        if (response.ok) {
+            const result = await response.json();
+            return {
+                message: result.message || 'Product status updated successfully.',
+            };
+        } else {
+            const errorText = await response.text();
+            throw new Error(
+                `Failed to update product status. Status: ${response.status}. Response: ${errorText}`
+            );
+        }
+    } catch (error) {
+        console.error('Error in updateProductStatusApi:', error);
+        throw new Error(
+            `Network or processing error when updating product status: ${
+                error instanceof Error ? error.message : 'Unknown error'
+            }`
+        );
+    }
+}
+
+
+/**
+ * Cập nhật phương thực bán(Real API Call).
+ */
+export async function updateSaleMethodApi(
+    productId: number,
+    newMethod: SaleMethod
+): Promise<{ message: string }> {
+    const requestBody: UpdateSaleMeThodRequest = { productId, newMethod };
+    const updateUrl = `${PRODUCT_API_URL}/sale-method`;
+    try {
+        const headers = getAuthHeaders();
+
+        console.log(`${updateUrl}`);
+        const response = await fetch(updateUrl, {
+            method: 'PATCH',
+            headers: headers,
+            body: JSON.stringify(requestBody),
+        });
+
+        // ✅ Kiểm tra phản hồi và xử lý hợp lệ
+        if (response.ok) {
+            const result = await response.json();
+            return {
+                message: result.message || 'Product sale method updated successfully.',
+            };
+        } else {
+            const errorText = await response.text();
+            throw new Error(
+                `Failed to update product sale method. Sale method: ${response.status}. Response: ${errorText}`
+            );
+        }
+    } catch (error) {
+        console.error('Error in updateProductSaleMethodApi:', error);
+        throw new Error(
+            `Network or processing error when updating product sale method: ${
                 error instanceof Error ? error.message : 'Unknown error'
             }`
         );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 
 import {
     Popover, Box, Typography, Button, Divider,
@@ -6,20 +6,21 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from "react-router-dom";
-import { UserService } from "../../services/userService";
+// UserService không còn cần thiết ở đây, vì logic gọi API đã chuyển sang Header
+// import { UserService } from "../../services/userService"; 
 
 
 // --- ICONS TIỆN ÍCH ---
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'; // Tin đăng đã lưu
-import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';   // Tìm kiếm đã lưu
-import HistoryIcon from '@mui/icons-material/History';                 // Lịch sử xem tin
-import StarBorderIcon from '@mui/icons-material/StarBorder';           // Đánh giá từ tôi
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'; 
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';  
+import HistoryIcon from '@mui/icons-material/History';                
+import StarBorderIcon from '@mui/icons-material/StarBorder';          
 
 // --- ICONS KHÁC ---
-import SettingsIcon from '@mui/icons-material/Settings';               // Cài đặt tài khoản
-import HeadsetIcon from '@mui/icons-material/Headset';                 // Trợ giúp
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'; // Đóng góp ý kiến
-import LogoutIcon from '@mui/icons-material/Logout';                   // Đăng xuất
+import SettingsIcon from '@mui/icons-material/Settings';               
+import HeadsetIcon from '@mui/icons-material/Headset';                
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'; 
+import LogoutIcon from '@mui/icons-material/Logout';                   
 
 interface UserData {
     name: string;
@@ -33,6 +34,10 @@ interface AccountMenuPopoverProps {
     open: boolean;
     anchorEl: null | HTMLElement;
     handleClose: () => void;
+    // 🚨 THÊM PROP DỮ LIỆU TỪ COMPONENT CHA
+    isLoggedIn: boolean; 
+    user: UserData | null;
+    onLogoutSuccess: () => void;
 }
 
 // --- Dữ liệu Menu ---
@@ -53,46 +58,18 @@ const otherLinks = [
 
 
 export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
-    open, anchorEl, handleClose
+    open, anchorEl, handleClose, user, isLoggedIn, onLogoutSuccess
 }) => {
     const theme = useTheme();
     const navigate = useNavigate();
 
-    const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-    const [user, setUser] = useState<UserData | null>(null);
-
-    useEffect(() => {
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-            setIsLoggedIn(false);
-            setUser(null);
-            return;
-        }
-
-        const fetchProfile = async () => {
-            try {
-                const data = await UserService.getProfile();
-                setUser({
-                    name: data.userFullName,
-                    avatarUrl: data.avatar,
-                    followers: 0,
-                    following: 0,
-                    eCoin: 0,
-                });
-                setIsLoggedIn(true);
-            } catch (err) {
-                console.error("Không lấy được user:", err);
-                setIsLoggedIn(false);
-            }
-        };
-
-        if (open) fetchProfile();
-    }, [open]);
+    // 🚨 Đã loại bỏ useState và useEffect lấy profile ở đây
 
     const handleLogout = () => {
         localStorage.removeItem("accessToken");
+        onLogoutSuccess();
         handleClose();
-        navigate("/login");
+        navigate("/");
     };
     
     const goToAccountSettings = () => {
@@ -100,7 +77,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
         navigate("/account/profile");
     };
 
-    // --- RENDER TRẠNG THÁI CHƯA ĐĂNG NHẬP (image_0a9a27.png) ---
+    // --- RENDER TRẠNG THÁI CHƯA ĐĂNG NHẬP ---
     const renderLoggedOutState = () => (
         <Box sx={{ p: 2, textAlign: 'center', width: 280 }}>
             {/* 1. Thông báo */}
@@ -123,7 +100,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                 </Button>
                 <Button
                     variant="contained"
-                    color="ecycle"
+                    color="primary" // Sửa color="ecycle" thành color="primary" giả định
                     fullWidth
                     sx={{ py: 1.2, fontWeight: 'bold' }}
                     onClick={() => { handleClose(); navigate("/login"); }}
@@ -142,12 +119,12 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
             onClose={handleClose}
 
             anchorOrigin={{
-                vertical: 'bottom', // Neo từ dưới cùng của nút bấm
-                horizontal: 'right', // Neo từ phía bên phải của nút bấm
+                vertical: 'bottom',
+                horizontal: 'right',
             }}
             transformOrigin={{
-                vertical: 'top', // Bắt đầu Popover từ đỉnh của nó
-                horizontal: 'right', // Căn phải Popover với nút bấm
+                vertical: 'top', 
+                horizontal: 'right', 
             }}
 
             slotProps={{

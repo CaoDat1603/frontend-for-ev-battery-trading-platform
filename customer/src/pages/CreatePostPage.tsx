@@ -491,7 +491,6 @@ const handleSubmit = async () => {
     const requestData: CreateProductRequest = {
         title: postData.title,
         price: priceNumber, 
-        sellerId: 1, // Giả sử sellerId là string trong state
         pickupAddress: `${postData.location.province}, ${postData.location.district}, ${postData.location.street}`,
         productName: postData.productName,
         description: postData.description,
@@ -518,7 +517,7 @@ const handleSubmit = async () => {
         
         // ✅ THÀNH CÔNG
         alert(`Bài đăng đã được tạo thành công! ID: ${result.productId}`);
-        navigate(`/product/${result.productId}`); // Chuyển hướng đến trang chi tiết
+        navigate(`/detail-post-manage/${result.productId}`); // Chuyển hướng đến trang chi tiết
         
     } catch (error) {
         console.error('Submission Failed:', error);

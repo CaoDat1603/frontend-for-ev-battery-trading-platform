@@ -58,8 +58,8 @@ interface UpdateProductStatusRequest {
 
 
 // --- CONFIG & API URLs ---
-const BASE_URL = 'http://localhost:8102'; // <-- URL CƠ SỞ ĐÃ ĐỊNH NGHĨA
-const PRODUCT_API_URL = `${BASE_URL}/api/Products`; 
+const BASE_URL = 'http://localhost:8000/'; // <-- URL CƠ SỞ ĐÃ ĐỊNH NGHĨA
+const PRODUCT_API_URL = `${BASE_URL}/api/products`; 
 
 
 // --- HELPER FUNCTION: THÊM TIỀN TỐ URL ---

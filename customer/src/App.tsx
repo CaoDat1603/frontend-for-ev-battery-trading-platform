@@ -6,8 +6,14 @@ import LayoutMain from './layouts/LayoutMain';
 import LayoutAuth from './layouts/LayoutAuth';
 import { HomePage } from './pages/HomePage';
 import ProfilePage from './pages/ProfilePage';
-import { EcycleCategoryPage } from './pages/EcycleCategoryPage';
+import { ElectricCarBatteryPage } from './pages/ElectricCarBatteryPage';
+import { ElectricScooterBatteryPage } from './pages/ElectricScooterBatteryPage';
+import { ElectricBatteryPage } from './pages/ElectricBatteryPage';
+import { SearchPostPage } from './pages/SearchPostPage'; 
 import { LoginPage } from './pages/Auth';
+
+import ProductManagementPage from './pages/ProductManagementPage';
+import PostDetailPageManager from './pages/PostDetailPageManager';
 // ... import các Pages Auth khác ...
 import { RegisterPage } from './pages/Auth';
 import { VerifyOtpPage } from './pages/Auth';
@@ -106,25 +112,34 @@ const App: React.FC = () => (
                     path="/car-ecycle"
                     element={
                         <LayoutMain>
-                            <EcycleCategoryPage />
+                            <ElectricCarBatteryPage />
                         </LayoutMain>
                     }
                 />
                 <Route
-                    path="/xe-may-dien"
+                    path="/scooter-ecycle"
                     element={
                         <LayoutMain>
-                            <PlaceholderPage title="Xe Máy Điện" />
+                            <ElectricScooterBatteryPage />
                         </LayoutMain>
                     }
                 />
                 <Route
-                    path="/pin-xe-dien"
+                    path="/battery-ecycle"
                     element={
                         <LayoutMain>
-                            <PlaceholderPage title="Pin Xe Điện" />
+                            <ElectricBatteryPage />
                         </LayoutMain>
                     }
+                />
+                <Route 
+                    path="/search-post" 
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <SearchPostPage />
+                        </LayoutMain>
+                    } 
                 />
                 <Route 
                     path="/content/:postId" 
@@ -141,6 +156,24 @@ const App: React.FC = () => (
                         <LayoutMain>
                             <ScrollToTop /> 
                             <CreatePostPage />
+                        </LayoutMain>
+                    } 
+                />
+                <Route 
+                    path="/manage-posts" 
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <ProductManagementPage />
+                        </LayoutMain>
+                    } 
+                />
+                <Route 
+                    path="/detail-post-manage/:postId" 
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <PostDetailPageManager />
                         </LayoutMain>
                     } 
                 />

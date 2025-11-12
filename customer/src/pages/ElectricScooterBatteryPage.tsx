@@ -5,12 +5,16 @@ import {
     Divider, CircularProgress, Alert,
     Menu, MenuItem 
 } from '@mui/material';
+import {Link} from 'react-router-dom';
+
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CloseIcon from '@mui/icons-material/Close';
 import GridViewIcon from '@mui/icons-material/GridView';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import HomeIcon from '@mui/icons-material/Home'; 
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 
 // --- Imports từ component con và service ---
 import { PostCard, type PostData} from '../components/PostCard'; 
@@ -138,7 +142,7 @@ interface EcycleCategoryPageProps {
 // --- COMPONENT CHÍNH EcycleCategoryPage ---
 // -----------------------------------------------------------------
 
-export const EcycleCategoryPage: React.FC<EcycleCategoryPageProps> = ({ globalSearchTerm }) => {
+export const ElectricScooterBatteryPage: React.FC<EcycleCategoryPageProps> = ({ globalSearchTerm }) => {
     const theme = useTheme();
     
     // 🚨 LẤY LOCATION TỪ CONTEXT
@@ -341,13 +345,14 @@ export const EcycleCategoryPage: React.FC<EcycleCategoryPageProps> = ({ globalSe
                     currentFilters.sortBy,     
                     currentFilters.saleMethod,
                     currentFilters.isVerified,  
-                    1,          
+                    2,          
                     page,                
                     itemsPerPage         
                 ),
                 // Lấy tổng số lượng (Đảm bảo truyền CÙNG tham số lọc)
                 countProduct(
                     currentFilters.filterStatus,
+                    currentFilters.searchTerm,
                     currentFilters.minPrice,
                     currentFilters.maxPrice,
                     undefined, 
@@ -355,7 +360,7 @@ export const EcycleCategoryPage: React.FC<EcycleCategoryPageProps> = ({ globalSe
                     currentFilters.saleMethod,
                     false, 
                     currentFilters.isVerified,
-                    1,
+                    2,
                     undefined
                 ),
             ]);
@@ -617,11 +622,14 @@ export const EcycleCategoryPage: React.FC<EcycleCategoryPageProps> = ({ globalSe
             <Container maxWidth="lg" sx={{ pt: 3 }}>
                 
                 {/* Breadcrumb và Tiêu đề */}
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    <Box component="span" sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>
-                        Trang chủ
-                    </Box> 
-                    / Xe điện
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    <Link to="/" style={{ textDecoration: 'none', color: theme.palette.text.secondary }}>
+                        <HomeIcon sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} /> Trang chủ
+                    </Link>
+                    {' / '}
+                    <Link to="/scooter-ecycle" style={{ textDecoration: 'text.primary', color: 'black', fontWeight: 'bold', }}>
+                        <TwoWheelerIcon sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} /> Xe máy điện
+                    </Link>
                 </Typography>
                 
                 <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>

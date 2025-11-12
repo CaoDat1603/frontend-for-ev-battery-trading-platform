@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Button, Container, CircularProgress, Alert } from '@mui/material';
-
+import { Link, useNavigate } from 'react-router-dom';
 // --- Imports từ các component con và service ---
 import { ProductCategories } from '../components/ProductCategories';
 import { PostCard, type PostData } from '../components/PostCard'; 
@@ -12,6 +12,7 @@ import { useLocationContext } from '../context/LocationContext'; // 🚨 IMPORT 
 import WelcomBaner from '../assets/welcome_banner.png';
 
 export const HomePage: React.FC = () => {
+    const navigate = useNavigate();
     // 🚨 SỬ DỤNG CONTEXT ĐỂ LẤY VỊ TRÍ
     const { activeLocationName } = useLocationContext(); 
     
@@ -76,7 +77,8 @@ export const HomePage: React.FC = () => {
     }, [activeLocationName]); // 🚨 QUAN TRỌNG: Lắng nghe activeLocationName
 
     const handleViewMore = () => {
-        console.log('Xem thêm tin đăng');
+        // Chuyển hướng đến trang SearchPostPage
+        window.location.href = '/search-post';
     };
 
     // Tạo tiêu đề động
@@ -191,7 +193,7 @@ export const HomePage: React.FC = () => {
                                 py: 1, px: 4, 
                                 borderRadius: '8px' 
                             }}
-                            onClick={handleViewMore}
+                            onClick={() => navigate("/search-post")}
                         >
                             Xem thêm tin đăng ({posts.length > 0 ? 'Hiển thị thêm' : 'Giả định'})
                         </Button>
