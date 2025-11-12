@@ -20,6 +20,7 @@ import { VerifyOtpPage } from './pages/Auth';
 import { ResetPasswordEmailPage } from './pages/Auth';
 import { ResetPasswordPhonePage } from './pages/Auth';
 import { ForgotPasswordPage } from './pages/Auth';
+import ViewUserPage from "./pages/ViewUserPage";
 
 import ProductDetailPage from './pages/ProductDetailPage';
 import ScrollToTop from './components/ScrollToTop';
@@ -176,6 +177,14 @@ const App: React.FC = () => (
                             <PostDetailPageManager />
                         </LayoutMain>
                     } 
+                />
+                                <Route
+                    path="/view-user/:userId"
+                    element={
+                        <LayoutMain>
+                            <ViewUserPage />
+                        </LayoutMain>
+                    }
                 />
             </Routes>
         </BrowserRouter>

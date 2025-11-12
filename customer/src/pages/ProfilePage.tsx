@@ -1,37 +1,29 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { Box, Button, TextField, Typography, Avatar, Card, CardContent, CircularProgress, Chip, } from "@mui/material";
+import { useUser } from "../context/UserContext";
+import type { UserProfile } from "../context/UserContext";
+import {
+    Box,
+    Button,
+    TextField,
+    Typography,
+    Avatar,
+    Card,
+    CardContent,
+    CircularProgress,
+    Chip,
+} from "@mui/material";
 import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import { UserService } from "../services/userService";
 
-type ProfileStatus = "Unverified" | "Pending" | "Verified" | "Rejected";
-
-interface UserProfile {
-    userId: number;
-    userFullName: string;
-    email: string;
-    phone: string;
-    userAddress: string;
-    userBirthday: string;
-    contactPhone: string;
-    avatar: string;
-    citizenIdCard: string;
-    userStatus: string;
-    profileStatus: ProfileStatus;
-    rejectionReason: string | null;
-}
+const BASE_URL = "http://localhost:8000";
 
 const ProfilePage: React.FC = () => {
-    const BASE_URL = "http://localhost:8000";
-    const getFullUrl = (path: string | null) => {
-        if (!path) return "";
-        return path.startsWith("http") ? path : `${BASE_URL}${path}`;
-    };
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [editMode, setEditMode] = useState(false);
+    const { user, refreshUser } = useUser();
 
+    const [profile, setProfile] = useState<UserProfile | null>(null);
     const [tempProfile, setTempProfile] = useState<UserProfile | null>(null);
+    const [editMode, setEditMode] = useState(false);
 
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [cicFile, setCicFile] = useState<File | null>(null);
@@ -41,50 +33,60 @@ const ProfilePage: React.FC = () => {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const normalizeProfile = (data: any): UserProfile => ({
-        ...data,
-        userFullName: data.userFullName ?? "",
-        userAddress: data.userAddress ?? "",
-        contactPhone: data.contactPhone ?? "",
-        userBirthday: data.userBirthday?.split("T")[0] ?? "",
-        email: data.email ?? "",
-        phone: data.phone ?? "",
-        avatar: data.avatar ?? "",
-        citizenIdCard: data.citizenIdCard ?? "",
-        userStatus: data.userStatus ?? "",
-        profileStatus: data.profileStatus ?? "Unverified",
-        rejectionReason: data.rejectionReason ?? null,
-    });
 
-    // =================== LOAD PROFILE ===================
+    // Normalize dữ liệu backend
+    const normalizeProfile = (data: any): UserProfile => {
+        const avatarUrl = (data.avatar ?? "").startsWith("http")
+            ? data.avatar
+            : `${BASE_URL}/identity${data.avatar ?? ""}`;
+        const citizenIdCardUrl = (data.citizenIdCard ?? "").startsWith("http")
+            ? data.citizenIdCard
+            : `${BASE_URL}/identity${data.citizenIdCard ?? ""}`;
+
+        return {
+            userId: data.userId,
+            userFullName: data.userFullName ?? "",
+            email: data.email ?? "",
+            phone: data.phone ?? "",
+            userAddress: data.userAddress ?? "",
+            userBirthday: data.userBirthday?.split("T")[0] ?? "",
+            contactPhone: data.contactPhone ?? "",
+            avatar: data.avatar ?? "",
+            avatarUrl,
+            citizenIdCard: data.citizenIdCard ?? "",
+            citizenIdCardUrl,
+            userStatus: data.userStatus ?? "",
+            profileStatus: data.profileStatus ?? "Unverified",
+            rejectionReason: data.rejectionReason ?? null,
+        };
+    };
+
+    // Load profile lần đầu
     useEffect(() => {
         const loadProfile = async () => {
             try {
                 const data = await UserService.getProfile();
                 const normalized = normalizeProfile(data);
                 setProfile(normalized);
-                setAvatarPreview(getFullUrl("/identity" + normalized.avatar));
-                setCicPreview(getFullUrl("/identity"+normalized.citizenIdCard));
+                setAvatarPreview(normalized.avatarUrl ?? null);
+                setCicPreview(normalized.citizenIdCardUrl ?? null);
             } catch (err) {
-                console.error(err);
+                console.error("Lỗi load profile:", err);
             } finally {
                 setLoading(false);
             }
         };
-
         loadProfile();
     }, []);
 
-    // =================== FILE CHANGE ===================
+    // Handle file change
     const handleFileChange = (
         e: React.ChangeEvent<HTMLInputElement>,
         type: "avatar" | "cic"
     ) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         const preview = URL.createObjectURL(file);
-
         if (type === "avatar") {
             setAvatarFile(file);
             setAvatarPreview(preview);
@@ -94,7 +96,7 @@ const ProfilePage: React.FC = () => {
         }
     };
 
-    // =================== HANDLE EDIT ===================
+    // Handle edit/cancel/save
     const handleEdit = () => {
         setTempProfile(profile ? { ...profile } : null);
         setEditMode(true);
@@ -103,17 +105,14 @@ const ProfilePage: React.FC = () => {
     const handleCancel = () => {
         if (tempProfile) {
             setProfile(tempProfile);
-            setAvatarPreview(getFullUrl(tempProfile.avatar));
-            setCicPreview(getFullUrl(tempProfile.citizenIdCard));
-
+            setAvatarPreview(tempProfile.avatarUrl ?? null);
+            setCicPreview(tempProfile.citizenIdCardUrl ?? null);
         }
-
         setAvatarFile(null);
         setCicFile(null);
         setEditMode(false);
     };
 
-    // =================== SAVE ===================
     const handleSave = async () => {
         if (!profile) return;
         const form = new FormData();
@@ -121,7 +120,12 @@ const ProfilePage: React.FC = () => {
         form.append("UserFullName", profile.userFullName);
         form.append("UserAddress", profile.userAddress);
         form.append("ContactPhone", profile.contactPhone ?? "");
-        form.append("UserBirthday", profile.userBirthday);
+        if (profile.userBirthday?.trim()) {
+            const dateObj = new Date(profile.userBirthday);
+            if (!isNaN(dateObj.getTime())) {
+                form.append("UserBirthday", dateObj.toISOString());
+            }
+        }
 
         if (avatarFile) form.append("Avatar", avatarFile);
         if (cicFile) form.append("CitizenIdCard", cicFile);
@@ -129,27 +133,32 @@ const ProfilePage: React.FC = () => {
         try {
             setSaving(true);
             await UserService.updateProfile(form);
+
+            await refreshUser(); // đồng bộ UserContext
+
             const refreshed = await UserService.getProfile();
             const normalized = normalizeProfile(refreshed);
             setProfile(normalized);
-            setAvatarPreview(getFullUrl(normalized.avatar));
-            setCicPreview(getFullUrl(normalized.citizenIdCard));
+            setAvatarPreview(normalized.avatarUrl ?? null);
+            setCicPreview(normalized.citizenIdCardUrl ?? null);
             setTempProfile(null);
-            alert("Cập nhật thành công!");
             setEditMode(false);
+
+            alert("Cập nhật thành công!");
         } catch (err: any) {
-            console.log("Lỗi BE:", err.response?.data);
-            alert("Cập nhật thất bại");
-        } finally {
-            setSaving(false);
-        }
+    if (err.response?.status === 429) {
+        alert("Bạn thao tác quá nhanh, vui lòng thử lại sau vài giây.");
+    } else {
+        alert("Cập nhật thất bại");
+    }
+} finally {
+    setSaving(false);
+}
     };
 
-    // =================== UI ===================
+    // UI
     if (loading)
-        return (
-            <CircularProgress sx={{ display: "block", m: "120px auto" }} size={48} />
-        );
+        return <CircularProgress sx={{ display: "block", m: "120px auto" }} size={48} />;
 
     if (!profile)
         return <Typography textAlign="center">Không tìm thấy hồ sơ.</Typography>;
@@ -160,7 +169,6 @@ const ProfilePage: React.FC = () => {
                 <Typography variant="h4" fontWeight="700">
                     Thông tin cá nhân
                 </Typography>
-
                 <Chip
                     label={profile.profileStatus}
                     color={
@@ -184,13 +192,12 @@ const ProfilePage: React.FC = () => {
                             gap: 4,
                         }}
                     >
-                        {/* LEFT SECTION */}
+                        {/* LEFT */}
                         <Box sx={{ width: { xs: "100%", md: 300 }, textAlign: "center" }}>
                             <Avatar
                                 src={avatarPreview ?? undefined}
                                 sx={{ width: 160, height: 160, mx: "auto", mb: 2 }}
                             />
-
                             {editMode && (
                                 <Button
                                     component="label"
@@ -207,7 +214,6 @@ const ProfilePage: React.FC = () => {
                                     />
                                 </Button>
                             )}
-
                             {cicPreview && (
                                 <Box sx={{ mt: 2 }}>
                                     <img
@@ -217,7 +223,6 @@ const ProfilePage: React.FC = () => {
                                     />
                                 </Box>
                             )}
-
                             {editMode && (
                                 <Button
                                     component="label"
@@ -237,7 +242,7 @@ const ProfilePage: React.FC = () => {
                             )}
                         </Box>
 
-                        {/* RIGHT SECTION */}
+                        {/* RIGHT */}
                         <Box sx={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
                             <TextField
                                 label="Họ và tên"
@@ -248,11 +253,18 @@ const ProfilePage: React.FC = () => {
                                     setProfile({ ...profile, userFullName: e.target.value })
                                 }
                             />
-
-
-                            <TextField label="Email" value={profile.email} disabled InputLabelProps={{ shrink: true }} />
-                            <TextField label="Số điện thoại" value={profile.phone} disabled InputLabelProps={{ shrink: true }} />
-
+                            <TextField
+                                label="Email"
+                                value={profile.email}
+                                disabled
+                                InputLabelProps={{ shrink: true }}
+                            />
+                            <TextField
+                                label="Số điện thoại"
+                                value={profile.phone}
+                                disabled
+                                InputLabelProps={{ shrink: true }}
+                            />
                             <TextField
                                 label="Số liên hệ khác"
                                 value={profile.contactPhone ?? ""}
@@ -262,7 +274,6 @@ const ProfilePage: React.FC = () => {
                                     setProfile({ ...profile, contactPhone: e.target.value })
                                 }
                             />
-
                             <TextField
                                 label="Địa chỉ"
                                 value={profile.userAddress}
@@ -272,13 +283,13 @@ const ProfilePage: React.FC = () => {
                                     setProfile({ ...profile, userAddress: e.target.value })
                                 }
                             />
-
                             <TextField
                                 type="date"
                                 label="Ngày sinh"
-                                value={profile.userBirthday?.split("T")[0] || ""}
+                                value={profile.userBirthday ?? ""}
                                 disabled={!editMode}
                                 InputLabelProps={{ shrink: true }}
+                                inputProps={{ max: new Date().toISOString().split("T")[0] }}
                                 onChange={(e) =>
                                     setProfile({ ...profile, userBirthday: e.target.value })
                                 }
@@ -286,7 +297,6 @@ const ProfilePage: React.FC = () => {
                         </Box>
                     </Box>
 
-                    {/* BUTTONS */}
                     <Box sx={{ textAlign: "center", mt: 3 }}>
                         {!editMode ? (
                             <Button variant="contained" onClick={handleEdit}>
@@ -303,7 +313,6 @@ const ProfilePage: React.FC = () => {
                                 >
                                     {saving ? "Đang lưu..." : "Lưu"}
                                 </Button>
-
                                 <Button variant="outlined" onClick={handleCancel}>
                                     Hủy
                                 </Button>

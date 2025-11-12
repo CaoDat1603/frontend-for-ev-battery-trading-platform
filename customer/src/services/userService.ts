@@ -22,6 +22,18 @@ export const UserService = {
         }
     },
 
+    getUserById: async (userId: number) => {
+        try {
+            const res = await axios.get(`${API_BASE_URL}/guest/${userId}`, {
+                withCredentials: true,
+            });
+            return res.data;
+        } catch (err: any) {
+            const msg = err.response?.data?.message || "Không thể lấy thông tin người dùng này";
+            throw new Error(msg);
+        }
+    },
+
     updateProfile: async (formData: FormData) => {
         try {
             const token = localStorage.getItem("accessToken");
@@ -33,7 +45,7 @@ export const UserService = {
                 },
                 withCredentials: true,
             });
-            
+
             return res.data;
         } catch (err: any) {
             const msg = err.response?.data?.message || "Cập nhật người dùng thất bại";

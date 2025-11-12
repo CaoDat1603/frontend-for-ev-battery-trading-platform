@@ -2,42 +2,29 @@ import React from "react";
 
 import {
     Popover, Box, Typography, Button, Divider,
-    List, ListItem, ListItemText, ListItemIcon, Avatar
+    List, ListItem, ListItemText, ListItemIcon, Avatar, CircularProgress
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from "react-router-dom";
-// UserService không còn cần thiết ở đây, vì logic gọi API đã chuyển sang Header
-// import { UserService } from "../../services/userService"; 
+import { useUser } from "../../context/UserContext";
 
 
 // --- ICONS TIỆN ÍCH ---
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'; 
-import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';  
-import HistoryIcon from '@mui/icons-material/History';                
-import StarBorderIcon from '@mui/icons-material/StarBorder';          
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'; // Tin đăng đã lưu
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';   // Tìm kiếm đã lưu
+import HistoryIcon from '@mui/icons-material/History';                 // Lịch sử xem tin
+import StarBorderIcon from '@mui/icons-material/StarBorder';           // Đánh giá từ tôi
 
 // --- ICONS KHÁC ---
-import SettingsIcon from '@mui/icons-material/Settings';               
-import HeadsetIcon from '@mui/icons-material/Headset';                
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'; 
-import LogoutIcon from '@mui/icons-material/Logout';                   
-
-interface UserData {
-    name: string;
-    avatarUrl: string;
-    followers: number;
-    following: number;
-    eCoin: number;
-}
+import SettingsIcon from '@mui/icons-material/Settings';               // Cài đặt tài khoản
+import HeadsetIcon from '@mui/icons-material/Headset';                 // Trợ giúp
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'; // Đóng góp ý kiến
+import LogoutIcon from '@mui/icons-material/Logout';                   // Đăng xuất
 
 interface AccountMenuPopoverProps {
     open: boolean;
     anchorEl: null | HTMLElement;
     handleClose: () => void;
-    // 🚨 THÊM PROP DỮ LIỆU TỪ COMPONENT CHA
-    isLoggedIn: boolean; 
-    user: UserData | null;
-    onLogoutSuccess: () => void;
 }
 
 // --- Dữ liệu Menu ---
@@ -58,16 +45,17 @@ const otherLinks = [
 
 
 export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
-    open, anchorEl, handleClose, user, isLoggedIn, onLogoutSuccess
+    open, anchorEl, handleClose
 }) => {
     const theme = useTheme();
     const navigate = useNavigate();
+    const { user, setUser, loading } = useUser();
 
-    // 🚨 Đã loại bỏ useState và useEffect lấy profile ở đây
+    const isLoggedIn = !!user;
 
     const handleLogout = () => {
         localStorage.removeItem("accessToken");
-        onLogoutSuccess();
+        setUser(null);
         handleClose();
         navigate("/");
     };
@@ -77,7 +65,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
         navigate("/account/profile");
     };
 
-    // --- RENDER TRẠNG THÁI CHƯA ĐĂNG NHẬP ---
+    // --- RENDER TRẠNG THÁI CHƯA ĐĂNG NHẬP (image_0a9a27.png) ---
     const renderLoggedOutState = () => (
         <Box sx={{ p: 2, textAlign: 'center', width: 280 }}>
             {/* 1. Thông báo */}
@@ -100,7 +88,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                 </Button>
                 <Button
                     variant="contained"
-                    color="primary" // Sửa color="ecycle" thành color="primary" giả định
+                    color="ecycle"
                     fullWidth
                     sx={{ py: 1.2, fontWeight: 'bold' }}
                     onClick={() => { handleClose(); navigate("/login"); }}
@@ -119,12 +107,12 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
             onClose={handleClose}
 
             anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
+                vertical: 'bottom', // Neo từ dưới cùng của nút bấm
+                horizontal: 'right', // Neo từ phía bên phải của nút bấm
             }}
             transformOrigin={{
-                vertical: 'top', 
-                horizontal: 'right', 
+                vertical: 'top', // Bắt đầu Popover từ đỉnh của nó
+                horizontal: 'right', // Căn phải Popover với nút bấm
             }}
 
             slotProps={{
@@ -141,29 +129,24 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                 },
             }}
         >
-            {/* TRẠNG THÁI LOGIN */}
-            {isLoggedIn && user ? (
+            {loading ? (
+                <Box sx={{ width: 280, display: 'flex', justifyContent: 'center', p: 2 }}>
+                    <CircularProgress size={24} />
+                </Box>
+            ) : isLoggedIn && user ? (
                 <Box sx={{ width: '100%' }}>
                     {/* 1. PROFILE HEADER */}
                     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
                         <Avatar
                             src={user.avatarUrl}
-                            alt={user.name}
+                            alt={user.userFullName}
                             sx={{ width: 64, height: 64, mb: 1.5, border: `2px solid ${theme.palette.warning.main}` }}
                         >
-                            {user.name[0]}
+                            {user.userFullName[0]}
                         </Avatar>
                         <Typography variant="h6" fontWeight="bold">
-                            {user.name}
+                            {user.userFullName}
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
-                            <Typography variant="body2" color="text.secondary">
-                                Người theo dõi {user.followers}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Đang theo dõi {user.following}
-                            </Typography>
-                        </Box>
                     </Box>
 
                     <Divider sx={{ my: 1 }} />
@@ -216,7 +199,6 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                         </ListItem>
                     </List>
                 </Box>
-
             ) : (
                 // Nếu Chưa đăng nhập, hiển thị giao diện Đăng nhập/Tạo tài khoản
                 renderLoggedOutState()
