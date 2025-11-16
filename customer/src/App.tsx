@@ -25,6 +25,10 @@ import ViewUserPage from "./pages/ViewUserPage";
 import ProductDetailPage from './pages/ProductDetailPage';
 import ScrollToTop from './components/ScrollToTop';
 import CreatePostPage from './pages/CreatePostPage';
+import { WishlistPage } from './pages/WishlistPage';
+import CreateAuctionPage from './pages/CreateAuctionPage'
+import AuctionDetailPage from './pages/AuctionDetailPage';
+import { ManageAuctionsPage } from './pages/ManageAuctionPage';
 
 // BỔ SUNG: Import LocationProvider
 import { LocationProvider } from './context/LocationContext'; 
@@ -178,7 +182,7 @@ const App: React.FC = () => (
                         </LayoutMain>
                     } 
                 />
-                                <Route
+                <Route
                     path="/view-user/:userId"
                     element={
                         <LayoutMain>
@@ -186,6 +190,41 @@ const App: React.FC = () => (
                         </LayoutMain>
                     }
                 />
+                <Route
+                    path="/manage-wishlists"
+                    element={
+                        <LayoutMain>
+                            <WishlistPage />
+                        </LayoutMain>
+                    }
+                />    
+                <Route
+                    path="/detail-auction/:auctionId"
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <AuctionDetailPage />
+                        </LayoutMain>
+                    }
+                />    
+                <Route
+                    path="/create-auction/:productId"
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <CreateAuctionPage />
+                        </LayoutMain>
+                    }
+                />   
+                <Route
+                    path="/manage-auction"
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <ManageAuctionsPage />
+                        </LayoutMain>
+                    }
+                />              
             </Routes>
         </BrowserRouter>
     </LocationProvider>

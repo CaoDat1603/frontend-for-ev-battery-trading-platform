@@ -1,76 +1,121 @@
-//*******************************************//
-//  COMPONENT POPOVER HIỂN THỊ TIN ĐÃ LƯU  //
-//******************************************// 
-
 import React from 'react';
 import { 
     Popover, Box, Typography, Button, Divider, 
-    List, ListItem, ListItemText, ListItemAvatar, Avatar 
+    List, ListItem, ListItemText, ListItemAvatar, Avatar,
+    CircularProgress, IconButton 
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 
-// --- Khai báo kiểu dữ liệu cho Tin đã lưu ---
-export interface SavedPost { 
-    id: string;
-    imagePath: string; // path "lưu đường link hình ảnh từ service"
-    name: string; // tên sản phẩm
-    price: string; // Giả định có thêm giá
-    details: string; // Chi tiết khác
-}
+// ⚠️ QUAN TRỌNG: Import useNavigate từ react-router-dom
+import { useNavigate } from 'react-router-dom';
+
+// Import Context và kiểu dữ liệu mới
+import { useWishlist, type SavedPost } from '../../context/WishlistContext'; 
 
 interface SavedPostsPopoverProps {
     open: boolean;
     anchorEl: null | HTMLElement;
     handleClose: () => void;
-    // Dữ liệu tin đã lưu (Giả định, có thể thay thế bằng Redux/Context state)
-    savedPosts: SavedPost[]; 
 }
 
-// --- Dữ liệu giả định có 1 tin đã lưu (cho ví dụ) ---
-const mockSavedPosts: SavedPost[] = [
-    { 
-        id: '1', 
-        imagePath: 'https://via.placeholder.com/60x60.png?text=Yaris', // Thay bằng link ảnh thật
-        name: 'Toyota Yaris Cross 2024 1.5 D-CVT',
-        price: '730.000.000 VNĐ', 
-        details: '35.852 km',
-    }
-];
+// --- Hàm định dạng giá ---
+const formatPrice = (price: number): string => 
+    `${price.toLocaleString('vi-VN')} VNĐ`;
+
 
 export const SavedPostsPopover: React.FC<SavedPostsPopoverProps> = ({ 
-    open, anchorEl, handleClose, savedPosts 
+    open, anchorEl, handleClose 
 }) => {
     const theme = useTheme();
+    // ⚠️ KHAI BÁO HOOK CHUYỂN HƯỚNG
+    const navigate = useNavigate(); 
     
-    // Sử dụng dữ liệu mock nếu savedPosts rỗng trong ví dụ
-    const dataToShow = savedPosts.length > 0 ? savedPosts : mockSavedPosts;
-    const isDataEmpty = savedPosts.length === 0;
+    // 1. Sử dụng Context
+    const { savedPosts, loading, error, removeWishlistItem } = useWishlist(); 
+    
+    const isDataEmpty = !loading && savedPosts.length === 0;
 
-    // --- RENDER TRẠNG THÁI RỖNG (image_0bf83d.png) ---
+    // Hiển thị tối đa 3 mục (Tôi điều chỉnh từ 1 lên 3 để Popover có ý nghĩa hơn)
+    const limitedPosts = savedPosts.slice(0, 1); 
+
+    // 2. Xử lý xóa
+    const handleRemove = (e: React.MouseEvent, wishlistId: number) => {
+        e.stopPropagation(); // Ngăn chặn sự kiện click lan truyền lên ListItem
+        removeWishlistItem(wishlistId);
+    };
+
+    // 3. Xử lý chuyển hướng TẤT CẢ (FOOTER BUTTON)
+    const handleViewAll = () => {
+        handleClose(); // Đóng Popover
+        navigate('/manage-wishlists'); // Chuyển hướng đến trang quản lý
+    };
+
+    // 4. Xử lý chuyển hướng CHI TIẾT SẢN PHẨM (LIST ITEM)
+    const handleNavigateToProduct = (productId: string) => {
+        handleClose(); // Đóng Popover
+        navigate(`/content/${productId}`); // Chuyển hướng đến trang chi tiết
+    };
+    
+    // --- RENDER TRẠNG THÁI LOADING ---
+    if (loading) {
+        return (
+             <Popover
+                 open={open}
+                 anchorEl={anchorEl}
+                 onClose={handleClose}
+                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                 slotProps={{ paper: { sx: { borderRadius: '8px', mt: 0.5, minWidth: 300, textAlign: 'center' } } }}
+             >
+                 <Box sx={{ p: 3 }}>
+                     <CircularProgress size={20} />
+                     <Typography variant="body2" sx={{ mt: 1 }}>Đang tải tin đã lưu...</Typography>
+                 </Box>
+             </Popover>
+        );
+    }
+    
+    // --- RENDER TRẠNG THÁI RỖNG ---
     const renderEmptyState = () => (
-        <Box sx={{ p: 2, textAlign: 'center', maxWidth: 350 }}>
-            <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
-                Bạn chưa lưu tin đăng nào
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-                Lưu tin yêu thích, tin sẽ hiển thị ở đây để bạn dễ dàng quay lại sau.
-            </Typography>
+        <Box sx={{ minWidth: 350 }}>
+            <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
+                    Bạn chưa lưu tin đăng nào
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    Lưu tin yêu thích, tin sẽ hiển thị ở đây để bạn dễ dàng quay lại sau.
+                </Typography>
+            </Box>
+            
+            <Divider />
+            <Box sx={{ p: 1, textAlign: 'center' }}>
+                <Button 
+                    fullWidth 
+                    color="primary" 
+                    sx={{ textTransform: 'none' }}
+                    onClick={handleViewAll} // <-- Chuyển hướng đến trang quản lý
+                >
+                    Đến trang quản lý Wishlist
+                </Button>
+            </Box>
         </Box>
     );
 
-    // --- RENDER TRẠNG THÁI CÓ DỮ LIỆU (image_0bf83a.png) ---
+    // --- RENDER TRẠNG THÁI CÓ DỮ LIỆU ---
     const renderDataState = () => (
-        <Box sx={{ minWidth: 320 }}>
+        <Box sx={{ minWidth: 350 }}>
             <List dense sx={{ p: 0 }}>
-                {dataToShow.slice(0, 1).map((post) => ( // Chỉ hiển thị 1 tin đầu tiên (theo hình ảnh)
+                {limitedPosts.map((post) => ( 
                     <ListItem 
-                        key={post.id} 
+                        key={post.wishlistId} // Dùng wishlistId làm key
                         sx={{ 
                             py: 1.5, 
                             cursor: 'pointer',
                             '&:hover': { bgcolor: 'action.hover' }
                         }}
-                        onClick={handleClose} // Đóng Popover và chuyển hướng (logic chuyển hướng cần thêm)
+                        // ⚠️ THÊM LOGIC CHUYỂN HƯỚNG CHI TIẾT SẢN PHẨM
+                        onClick={() => handleNavigateToProduct(String(post.id))} 
                     >
                         <ListItemAvatar>
                             <Avatar 
@@ -88,15 +133,42 @@ export const SavedPostsPopover: React.FC<SavedPostsPopoverProps> = ({
                                 overflow: 'hidden', 
                                 textOverflow: 'ellipsis' 
                             }}
-                            secondary={post.details}
-                            secondaryTypographyProps={{ 
-                                color: 'text.primary', 
-                                mt: 0.5 
-                            }}
+                            secondary={
+                                <>
+                                    <Typography component="span" variant="body2" color="error.main" fontWeight="bold" display="block">
+                                        {formatPrice(post.price)}
+                                    </Typography>
+                                    <Typography component="span" variant="body2" color="text.secondary">
+                                        {post.details}
+                                    </Typography>
+                                </>
+                            }
+                            sx={{ pr: 1 }} 
                         />
+                         {/* Nút xóa */}
+                         <IconButton 
+                            edge="end" 
+                            aria-label="delete" 
+                            size="small"
+                            onClick={(e) => handleRemove(e, post.wishlistId)}
+                        >
+                            <FavoriteIcon sx={{ color: 'red', fontSize: 20 }}/>
+                        </IconButton>
                     </ListItem>
                 ))}
             </List>
+            <Divider />
+            {/* FOOTER - CHUYỂN HƯỚNG TẤT CẢ */}
+            <Box sx={{ p: 1, textAlign: 'center' }}>
+                <Button 
+                    fullWidth 
+                    color="primary" 
+                    sx={{ textTransform: 'none' }}
+                    onClick={handleViewAll} // <-- Gắn sự kiện chuyển hướng trang quản lý
+                >
+                    Xem tất cả tin ({savedPosts.length})
+                </Button>
+            </Box>
         </Box>
     );
 
@@ -105,54 +177,36 @@ export const SavedPostsPopover: React.FC<SavedPostsPopoverProps> = ({
             open={open}
             anchorEl={anchorEl}
             onClose={handleClose}
-            anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right', // Neo Popover vào bên phải của Icon
-            }}
-            transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right', // Mở ra từ góc trên bên phải của Icon
-            }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             slotProps={{
                 paper: {
                     sx: {
                         borderRadius: '8px',
                         mt: 0.5,
-                        // Điều chỉnh padding và width dựa trên trạng thái
-                        minWidth: isDataEmpty ? 300 : 350,
-                        maxHeight: 400,
+                        minWidth: 350,
+                        maxHeight: 450,
                         overflow: 'auto',
                     },
                 },
             }}
         >
-            {/* --- HEADER POPUP --- */}
+            {/* HEADER POPUP */}
             <Box 
                 sx={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'center', 
                     p: 2, 
-                    borderBottom: isDataEmpty ? 'none' : `1px solid ${theme.palette.divider}`,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
                 }}
             >
                 <Typography variant="h6" fontWeight="bold">
                     Tin đăng đã lưu
                 </Typography>
-                
-                {!isDataEmpty && (
-                    <Button 
-                        // Thường sử dụng màu 'primary' hoặc 'info' cho link, không phải 'ecycle'
-                        color="primary" 
-                        onClick={handleClose}
-                        sx={{ textTransform: 'none' }}
-                    >
-                        Xem tất cả
-                    </Button>
-                )}
             </Box>
 
-            {/* --- NỘI DUNG POPUP --- */}
+            {/* NỘI DUNG POPUP */}
             {isDataEmpty ? renderEmptyState() : renderDataState()}
         </Popover>
     );

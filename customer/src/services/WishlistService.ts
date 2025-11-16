@@ -31,6 +31,62 @@ const getAuthHeaders = (contentType: string = 'application/json') => {
     return headers;
 };
 
+
+export async function countWishlist(
+    wishlistId?: number | null, 
+    productId?: number | null,
+): Promise<number> {
+    
+    // 1. Định nghĩa TẤT CẢ các tham số (bao gồm cả mặc định)
+    const allParams = {        
+        wishlistId: wishlistId ? String(wishlistId) : null,
+        productId: productId ? String(productId) : null,
+    };
+    
+    // 2. Xây dựng Object params CHỈ chứa giá trị hợp lệ
+    const params: Record<string, string> = {};
+
+    // Thêm các tham số có giá trị (loại bỏ null, undefined, và chuỗi rỗng)
+    Object.entries(allParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && String(value).trim() !== '') { 
+            params[key] = String(value);
+        }
+    });
+    
+    // 4. Chuyển đổi Object thành chuỗi query (đảm bảo không có & thừa)
+    const queryParams = new URLSearchParams(params).toString();
+    
+    const url = `${WISHLIST_API_URL}/count?${queryParams}`;
+
+    try {
+        const headers = getAuthHeaders();
+        console.log(`Fetching count: ${url}`);
+        const response = await fetch(url, {
+            headers: headers, 
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch product count. Status: ${response.status}. Error: ${errorText}`);
+        }
+        
+        // SỬA LỖI RESPONSE: Đọc dưới dạng văn bản và chuyển sang số nguyên
+        const resultText = await response.text();
+        const count = parseInt(resultText.trim(), 10);
+        
+        // Kiểm tra xem kết quả có phải là một số hợp lệ không
+        if (isNaN(count)) {
+            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+        }
+        
+        return count;
+
+    } catch (error) {
+        console.error("Error in countProduct:", error);
+        throw new Error(`Could not connect to the product count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
 export async function searchWishlist(
     wishlistId?: number | null, 
     productId?: number | null,
@@ -179,3 +235,5 @@ console.log(`DELETE ${unverifyUrl}`);
         );
     }
 };
+
+

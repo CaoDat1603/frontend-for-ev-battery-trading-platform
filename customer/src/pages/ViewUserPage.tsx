@@ -45,6 +45,7 @@ const mockReviews: Review[] = [
 
 // Kiểu dữ liệu cho viewedUser
 interface ViewedUser {
+  id?: number | null,
   userFullName: string;
   avatarUrl?: string;
 }
@@ -69,13 +70,15 @@ const ViewUserPage: React.FC = () => {
           });
         } else {
           const data = await UserService.getUserById(parsedUserId);
+          
           setViewedUser({
-            userFullName: data.UserFullName || "Người khác",
-            avatarUrl: data.Avatar,
+            id: data.userId,
+            userFullName: data.fullname || "Người khác",
+            avatarUrl: `http://localhost:8000/identity${data.avatar}`,
           });
         }
       } catch (err) {
-        console.error(err);
+        console.error("ViewPage:" + err);
         setViewedUser({
           userFullName: "Người khác",
           avatarUrl: undefined,

@@ -1,3 +1,5 @@
+// Header.tsx
+
 import React, { useState, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
 import type { MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -23,7 +25,7 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 // Import Component Popovers
 import LocationPropsPopover from './popovers/LocationDialog';
 import { CategoryMenu } from './popovers/CategoryMenu';
-import { SavedPostsPopover, type SavedPost } from './popovers/SavedPostsPopover';
+import { SavedPostsPopover} from './popovers/SavedPostsPopover';
 import { NotificationPopover } from './popovers/NotificationPopover';
 import { AccountMenuPopover } from './popovers/AccountMenuPopover';
 
@@ -38,25 +40,6 @@ import { VIETNAM_PROVINCES, type Province, type District } from '../data/vietnam
 // --- DỮ LIỆU CỐ ĐỊNH ---
 const ALL_VIETNAM_OPTION: Province = { id: 0, name: 'Toàn quốc', districts: [] };
 const LOCATION_DATA = VIETNAM_PROVINCES;
-
-// --- Dữ liệu giả định (Giữ nguyên) ---
-const mockSavedPosts: SavedPost[] = [
-    {
-        id: '1',
-        imagePath: '...',
-        name: 'Toyota Yaris Cross 2024 1.5 D-CVT',
-        price: '730.000.000 VNĐ',
-        details: '35.852 km',
-    }
-];
-const mockUser = {
-    name: 'Đạt Cao',
-    avatarUrl: 'https://cdn.chotot.com/uac2/26732157',
-    followers: 0,
-    following: 0,
-    eCoin: 0,
-};
-
 
 // --- CUSTOM COMPONENT LOCATION SELECT ---
 interface LocationSelectProps {
@@ -114,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
     // LẤY HÀM CẬP NHẬT CONTEXT
     const { setActiveLocationName } = useLocationContext();
 
-    //  Lấy user từ context
+    //  Lấy user từ context
     const { user, loading } = useUser();
     const isLoggedIn = !loading && Boolean(user);
     const avatarUrl = user?.avatarUrl || '';
@@ -205,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
 
     const handleAccountMenuOpen = (event: ReactMouseEvent<HTMLElement>) => { setAnchorElAccount(event.currentTarget); };
     const handleAccountMenuClose = () => { setAnchorElAccount(null); };
-    const handleLoginRedirect = () => { console.log("Redirecting to Login Page..."); };
+    const handleLoginRedirect = () => { navigate("/login"); };
 
     const [anchorElMenu, setAnchorElMenu] = useState<null | HTMLElement>(null);
     const isMenuOpen = Boolean(anchorElMenu);
@@ -224,7 +207,18 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
 
     const [hasNewNotifications, setHasNewNotifications] = useState(true);
     const [isAuctionActive, setIsAuctionActive] = useState(true);
-    const userSavedPosts: SavedPost[] = mockSavedPosts;
+    //const userSavedPosts: SavedPost[] = mockSavedPosts;
+    const open = Boolean(anchorEl);
+
+    // ********** LOGIC MỚI CHO NÚT ĐẤU GIÁ **********
+    const handleAuctionClick = () => {
+        if (!isLoggedIn) {
+            handleLoginRedirect(); // Chuyển hướng đến trang /login
+            return;
+        }
+        // Chuyển hướng đến trang quản lý đấu giá nếu đã đăng nhập
+        navigate("/manage-auction"); 
+    };
 
     // **********************************************************************************
     return (
@@ -311,9 +305,15 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
 
-                    {/* NÚT ĐẤU GIÁ */}
+                    {/* NÚT ĐẤU GIÁ (ĐÃ THÊM onClick) */}
                     <Badge variant="dot" color="error" invisible={!isAuctionActive}>
-                        <IconButton color="inherit" aria-label="auction"><GavelIcon /></IconButton>
+                        <IconButton 
+                            color="inherit" 
+                            aria-label="auction"
+                            onClick={handleAuctionClick} // <--- ĐÃ ÁP DỤNG HÀM MỚI
+                        >
+                            <GavelIcon />
+                        </IconButton>
                     </Badge>
 
                     {/* NÚT ĐÁNH DẤU (TIN ĐÃ LƯU) */}
@@ -401,14 +401,18 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                 open={isPopoverOpen}
                 handleClose={handleClose}
                 anchorEl={anchorEl}
-                onSelect={handleSelectLocation} // Đã sửa
+                onSelect={handleSelectLocation} 
                 currentCity={selectedCity}
                 currentDistrict={selectedDistrict}
                 initialLocations={LOCATION_DATA}
             />
 
             <CategoryMenu open={isMenuOpen} anchorEl={anchorElMenu} handleClose={handleMenuClose} />
-            <SavedPostsPopover open={isSavedOpen} anchorEl={anchorElSaved} handleClose={handleSavedClose} savedPosts={userSavedPosts} />
+            <SavedPostsPopover 
+                open={isSavedOpen} 
+                anchorEl={anchorElSaved} 
+                handleClose={handleSavedClose} 
+            />
             <NotificationPopover open={isNotiOpen} anchorEl={anchorElNoti} handleClose={handleNotiClose} />
 
         </AppBar>

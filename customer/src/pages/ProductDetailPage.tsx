@@ -28,16 +28,26 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
 
-// --- IMPORT TỪ SERVICE FILE ---
+// --- IMPORT TỪ SERVICE FILE (Product Service) ---
 import { 
     type ProductStatus, 
     ProductStatusValue,
-    type ProductType, // Vẫn import Type
+    type ProductType, 
     type SaleMethod, 
     SaleMethodValue, 
     type ProductData,
     getProductById, // <-- Hàm API cần dùng
 } from '../services/productService'; 
+
+// --- IMPORT DỊCH VỤ ĐẤU GIÁ (Auction Service) ---
+// ✅ Cần đảm bảo file 'auctionService' có chứa các hàm/types này
+import { 
+    searchAuction, 
+    type AuctionDetailData, 
+    // Giả định AuctionStatus (0=Pending, 1=Active, 2=Completed...)
+    type AuctionStatus 
+} from '../services/auctionService'; 
+
 
 // --- KHAI BÁO CÁC GIÁ TRỊ CONSTANT CHO PRODUCT TYPE (Dựa trên context) ---
 const PRODUCT_TYPE_VALUES = {
@@ -108,6 +118,7 @@ const ProductDetailPage: React.FC = () => {
     const [product, setProduct] = useState<ProductDetail | null>(null); 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null); 
+    const [isActionLoading, setIsActionLoading] = useState(false); // Thêm state loading cho nút action
 
     const [showPdfViewer, setShowPdfViewer] = useState(false);
     const [openImageModal, setOpenImageModal] = useState(false);
@@ -165,21 +176,75 @@ const ProductDetailPage: React.FC = () => {
             window.open(url, '_blank');
             console.log(`Downloading file for: ${title}`);
         } else {
-            // Thay thế alert bằng console log để tránh lỗi iFrame
             console.error('Không có tệp đính kèm.');
         }
     }
     
-    // Hàm xử lý mua hàng/đấu giá (Giả lập)
+    // --- ✅ HÀM XỬ LÝ HÀNH ĐỘNG ĐẤU GIÁ (ASYNC) ---
+    const handleBidAction = async () => {
+        if (!product) return;
+        
+        setIsActionLoading(true);
+
+        try {
+            // BƯỚC 1: Gọi hàm searchAuction với productId
+            const searchResults: AuctionDetailData[] = await searchAuction(
+                null, null, null, null, null, null, null, null, null, null, null, null, 
+                product.productId, 
+                'newest', 1, 10
+            );
+
+            // Lọc để chỉ lấy các phiên đấu giá đang Active (1) hoặc Pending (0)
+            const activeAuction = searchResults.find(
+                 // Giả định trường status trong AuctionDetailData là 'status'
+                 (auction: any) => auction.status === 1 || auction.status === 0
+            );
+            
+            if (activeAuction && activeAuction.auctionId) {
+                // BƯỚC 2A: Tìm thấy Auction đang hoạt động/chờ duyệt
+                const auctionId = activeAuction.auctionId; 
+                
+                console.log(`Tìm thấy Auction ID: ${auctionId}. Chuyển đến trang chi tiết đấu giá.`);
+                navigate(`/detail-auction/${auctionId}`);
+                
+            } else {
+                // BƯỚC 2B: Không tìm thấy Auction Active/Pending
+                console.log("Không tìm thấy Auction đang hoạt động. Kiểm tra phiên đã kết thúc.");
+                
+                const latestAuction = searchResults[0]; 
+                
+                if (latestAuction && latestAuction.auctionId) {
+                     // Nếu có phiên cũ, chuyển đến xem phiên đã kết thúc
+                     alert(`Phiên đấu giá đã kết thúc. Chuyển đến xem kết quả: ${latestAuction.auctionId}`);
+                     navigate(`/detail-auction/${latestAuction.auctionId}`);
+                } else {
+                     // Nếu không có bất kỳ phiên đấu giá nào được tìm thấy
+                     alert(`Tin đăng này chưa có phiên đấu giá nào. Vui lòng liên hệ người bán.`);
+                }
+            }
+
+        } catch (err) {
+            console.error("Lỗi khi tìm kiếm hoặc điều hướng đấu giá:", err);
+            alert("Lỗi kiểm tra trạng thái đấu giá. Vui lòng thử lại.");
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    // Hàm xử lý Mua hàng/Đấu giá (Bao gồm logic check SaleMethod)
     const handleAction = () => {
         if (!product) return;
+        
         if (product.methodSale === SaleMethodValue.Auction) {
-            console.log(`Sẵn sàng tham gia đấu giá cho sản phẩm ${product.productName}!`);
+            // Xử lý Đấu giá
+            handleBidAction();
         } else {
+            // Xử lý Mua Ngay (Giá cố định)
             console.log(`Sản phẩm ${product.productName} đã được thêm vào giỏ hàng!`);
+            // Thay thế alert bằng logic thêm vào giỏ hàng/snackbar
         }
-        // Thay thế alert bằng console log/snackbar giả lập
     };
+
 
     const isPdf = product?.fileUrl?.toLowerCase().endsWith('.pdf');
     
@@ -252,8 +317,8 @@ const ProductDetailPage: React.FC = () => {
                             {/* ✅ HÌNH ẢNH LỚN HƠN (200x200) */}
                             <Box 
                                 sx={{ 
-                                    width: 200, // Tăng kích thước
-                                    height: 200, // Tăng kích thước
+                                    width: 200, 
+                                    height: 200, 
                                     minWidth: 200,
                                     bgcolor: theme.palette.grey[200], 
                                     borderRadius: '8px',
@@ -395,18 +460,19 @@ const ProductDetailPage: React.FC = () => {
                         </Typography>
                         
                         <Button 
-                            startIcon={product.methodSale === SaleMethodValue.Auction ? <GavelIcon /> : <ShoppingCartIcon />} 
+                            startIcon={isActionLoading ? <CircularProgress size={20} color="inherit" /> : (product.methodSale === SaleMethodValue.Auction ? <GavelIcon /> : <ShoppingCartIcon />)} 
                             variant="contained" 
                             color={product.methodSale === SaleMethodValue.Auction ? 'warning' : 'success'} 
                             size="large"
                             fullWidth
                             onClick={handleAction}
+                            disabled={isActionLoading} // Vô hiệu hóa khi đang tải
                         >
                             {product.methodSale === SaleMethodValue.Auction ? 'Đấu giá ngay' : 'Mua ngay'}
                         </Button>
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                             {product.methodSale === SaleMethodValue.Auction 
-                                ? 'Liên hệ người bán để biết chi tiết đấu giá.' 
+                                ? 'Nhấn để xem/tham gia phiên đấu giá đang hoạt động.' 
                                 : 'Đặt hàng để nhận hàng tận nơi.'}
                         </Typography>
                     </Paper>
