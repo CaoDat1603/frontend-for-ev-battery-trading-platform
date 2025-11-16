@@ -82,6 +82,33 @@ const prefixUrl = (path: string | null): string | null => {
     return `${BASE_URL}/${trimmedPath}`;
 };
 
+/**
+ * Lấy Bearer Token từ localStorage và tạo Headers cho request được bảo vệ.
+ * @returns Object chứa Headers
+ * @throws Error nếu không tìm thấy token.
+ */
+const getAuthHeaders = (contentType: string = 'application/json') => {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+        throw new Error("Authorization token not found. Please log in.");
+    }
+
+    const headers: Record<string, string> = {
+        'Authorization': `Bearer ${token}`,
+        'accept': 'application/json', // Mặc định chấp nhận JSON
+    };
+    
+    // Chỉ thêm Content-Type nếu nó không phải là 'multipart/form-data' 
+    // (Vì FormData sẽ tự động set Content-Type)
+    if (contentType === 'application/json') {
+        headers['Content-Type'] = 'application/json';
+    } else if (contentType !== 'multipart/form-data') {
+        headers['Content-Type'] = contentType;
+    }
+    
+    return headers;
+};
+
 // --- SERVICE FUNCTIONS ---
 
 /**
@@ -91,7 +118,6 @@ const prefixUrl = (path: string | null): string | null => {
 export async function getProductsForModeration(
     filterStatus: string, 
     searchTerm: string, 
-    filterDate: string, // Giữ lại nhưng API mẫu không dùng tham số này
     minPrice?: number | null, 
     maxPrice?: number | null, 
     sellerId?: number | null, 
@@ -101,12 +127,15 @@ export async function getProductsForModeration(
     isSpam?: boolean | null,
     isVerified?: boolean | null, 
     productType?: ProductType | null,
-    createAt?: string | null
+    createAt?: string | null,
+
+    pageNumber?: number | null,
+    pageSize?: number | null
 ): Promise<ProductData[]> {
     
     // Pagination & Sorting (Default)
-    const pageNumber = 1;
-    const pageSize = 50; 
+    pageNumber = pageNumber || 1;
+    pageSize = pageSize || 20;
     
     // 1. Định nghĩa TẤT CẢ các tham số (bao gồm cả mặc định)
     const allParams = {
@@ -151,8 +180,12 @@ export async function getProductsForModeration(
     const url = `${PRODUCT_API_URL}/search/all?${queryParams}`;
 
     try {
+        const headers = getAuthHeaders();
+
         console.log(`Fetching: ${url}`);
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: headers, 
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -176,6 +209,86 @@ export async function getProductsForModeration(
     } catch (error) {
         console.error("Error in getProductsForModeration:", error);
         throw new Error(`Could not connect to the product API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+export async function countProductSeller(
+    filterStatus: string, 
+    searchTerm?: string | null,
+    minPrice?: number | null, 
+    maxPrice?: number | null, 
+    sellerId?: number | null, 
+    pickupAddress?: string | null, 
+    saleMethod?: SaleMethod | null,
+    isSpam?: boolean | null,
+    isVerified?: boolean | null, 
+    productType?: ProductType | null,
+    createAt?: string | null
+): Promise<number> {
+    
+    // 1. Định nghĩa TẤT CẢ các tham số (bao gồm cả mặc định)
+    const allParams = {        
+        // Tùy chọn (Filters)
+        q: searchTerm,
+        // filterDate (startDate) được giả định là không có trong API mẫu, tạm bỏ qua việc truyền nó
+        minPrice: minPrice ? String(minPrice) : null,
+        maxPrice: maxPrice ? String(maxPrice) : null,
+        sellerId: sellerId ? String(sellerId) : null,
+        pickupAddress: pickupAddress, 
+        saleMethod: saleMethod !== null && saleMethod !== undefined ? String(saleMethod) : null,
+        isSpam: isSpam !== null && isSpam !== undefined ? String(isSpam) : null,
+        isVerified: isVerified !== null && isVerified !== undefined ? String(isVerified) : null,
+        productType: productType !== null && productType !== undefined ? String(productType) : null,
+        createAt: createAt || null,
+    };
+    
+    // 2. Xây dựng Object params CHỈ chứa giá trị hợp lệ
+    const params: Record<string, string> = {};
+
+    // Thêm các tham số có giá trị (loại bỏ null, undefined, và chuỗi rỗng)
+    Object.entries(allParams).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && String(value).trim() !== '') { 
+            params[key] = String(value);
+        }
+    });
+
+    // 3. Xử lý logic đặc biệt cho Status (chỉ thêm nếu KHÔNG phải là 'All')
+    if (filterStatus !== 'All' && filterStatus) {
+        // Chuyển chuỗi ('Pending') sang giá trị số (0)
+        params.status = String(ProductStatusValue[filterStatus as keyof typeof ProductStatusValue]);
+    }
+    
+    // 4. Chuyển đổi Object thành chuỗi query (đảm bảo không có & thừa)
+    const queryParams = new URLSearchParams(params).toString();
+    
+    const url = `${PRODUCT_API_URL}/count-seller?${queryParams}`;
+
+    try {
+        const headers = getAuthHeaders();
+        console.log(`Fetching count: ${url}`);
+        const response = await fetch(url, {
+            headers: headers, 
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch product count. Status: ${response.status}. Error: ${errorText}`);
+        }
+        
+        // SỬA LỖI RESPONSE: Đọc dưới dạng văn bản và chuyển sang số nguyên
+        const resultText = await response.text();
+        const count = parseInt(resultText.trim(), 10);
+        
+        // Kiểm tra xem kết quả có phải là một số hợp lệ không
+        if (isNaN(count)) {
+            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+        }
+        
+        return count;
+
+    } catch (error) {
+        console.error("Error in countProduct:", error);
+        throw new Error(`Could not connect to the product count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -225,13 +338,11 @@ export async function updateProductStatusApi(
     const requestBody: UpdateProductStatusRequest = { productId, newStatus };
     const updateUrl = `${PRODUCT_API_URL}/status`;
     try {
+        const headers = getAuthHeaders();
         console.log(`${updateUrl}`);
         const response = await fetch(updateUrl, {
             method: 'PATCH',
-            headers: {
-                'accept': '*/*',
-                'Content-Type': 'application/json',
-            },
+            headers: headers, 
             body: JSON.stringify(requestBody),
         });
 
@@ -268,11 +379,10 @@ export async function verifyProductApi(
     const verifyUrl = `${PRODUCT_API_URL}/${productId}/verified`;
     console.log(`${verifyUrl}`);
     try {
+        const headers = getAuthHeaders();
         const response = await fetch(verifyUrl, {
             method: 'PATCH',
-            headers: {
-                'accept': '*/*'
-            },
+            headers: headers, 
         });
         // ✅ Kiểm tra phản hồi và xử lý hợp lệ
         if (response.ok) {
@@ -318,11 +428,10 @@ export async function unverifyProductApi(
     const unverifyUrl = `${PRODUCT_API_URL}/${productId}/verified`;
     console.log(`DELETE ${unverifyUrl}`);
     try {
+        const headers = getAuthHeaders();
         const response = await fetch(unverifyUrl, {
             method: 'DELETE', // Sử dụng DELETE
-            headers: {
-                'accept': '*/*'
-            },
+            headers: headers, 
         });
         
         if (response.ok) {
@@ -367,11 +476,10 @@ export async function markProductAsSpamApi(
     const spamUrl = `${PRODUCT_API_URL}/${productId}/spam`;
     console.log(`PATCH ${spamUrl}`);
     try {
+        const headers = getAuthHeaders();
         const response = await fetch(spamUrl, {
             method: 'PATCH', // Sử dụng PATCH
-            headers: {
-                'accept': '*/*'
-            },
+            headers: headers, 
         });
         
         if (response.ok) {
@@ -415,11 +523,10 @@ export async function unmarkProductAsSpamApi(
     const spamUrl = `${PRODUCT_API_URL}/${productId}/spam`;
     console.log(`DELETE ${spamUrl}`);
     try {
+        const headers = getAuthHeaders();
         const response = await fetch(spamUrl, {
             method: 'DELETE', // Sử dụng DELETE
-            headers: {
-                'accept': '*/*'
-            },
+            headers: headers, 
         });
         
         if (response.ok) {

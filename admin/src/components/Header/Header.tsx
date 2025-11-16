@@ -4,37 +4,31 @@ import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 
-// --- 1. IMPORT CÁC COMPONENT & HOOK ĐÃ TẠO ---
+// --- IMPORT COMPONENT & HOOK ---
 import { NotificationPopover } from '../popovers/NotificationPopover';
 import { AccountMenuPopover } from '../popovers/AccountMenuPopover';
-import { useAdminBadges } from '../../hooks/useAdminBadges'; 
-
-// --- Dữ liệu người dùng giả định đầy đủ ---
-const mockUser = {
-    name: 'Đạt Cao',
-    avatarUrl: 'https://cdn.chotot.com/uac2/26732157', 
-    role: 'Admin',
-};
-
-// --- GIẢ LẬP TRẠNG THÁI ĐĂNG NHẬP ---
-const isLoggedIn = true; 
+import { useAdminBadges } from '../../hooks/useAdminBadges';
+import { useAdmin } from '../../context/AdminContext';
 
 interface HeaderProps {
     drawerWidth: number;
     open: boolean;
-    handleDrawerToggle: () => void; // Đây là hàm cần gọi
+    handleDrawerToggle: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({ drawerWidth, open, handleDrawerToggle }) => {
     const theme = useTheme();
+    const { me, loadingMe } = useAdmin();
+    const isLoggedIn = !!me;
 
-    // --- 2. LOGIC POPOVER (Giữ nguyên) ---
+    // --- STATE POPOVER ---
     const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
     const [accountAnchorEl, setAccountAnchorEl] = useState<null | HTMLElement>(null);
 
     const isNotificationOpen = Boolean(notificationAnchorEl);
     const isAccountOpen = Boolean(accountAnchorEl);
 
+    // --- HANDLE EVENTS ---
     const handleNotificationClick = (event: React.MouseEvent<HTMLElement>) => {
         setNotificationAnchorEl(event.currentTarget);
     };
@@ -43,28 +37,23 @@ const Header: React.FC<HeaderProps> = ({ drawerWidth, open, handleDrawerToggle }
         setAccountAnchorEl(event.currentTarget);
     };
 
-    const handleNotificationClose = () => {
-        setNotificationAnchorEl(null);
-    };
+    const handleNotificationClose = () => setNotificationAnchorEl(null);
+    const handleAccountClose = () => setAccountAnchorEl(null);
 
-    const handleAccountClose = () => {
-        setAccountAnchorEl(null);
-    };
-    
-    // --- 3. LOGIC BADGE (Giữ nguyên) ---
+    // --- BADGE LOGIC ---
     const { badges, markNotificationsRead } = useAdminBadges(isLoggedIn);
     const hasUnreadNotifications = badges.hasUnreadNotifications;
-    
+
     const handleNotificationsBadgeClick = (event: React.MouseEvent<HTMLElement>) => {
         handleNotificationClick(event);
-        markNotificationsRead(); 
+        markNotificationsRead();
     };
 
-    // Hàm giả lập đăng xuất
+    // --- LOGOUT ---
     const handleLogout = () => {
-        console.log("User logged out!");
+        localStorage.removeItem('accessToken');
+        window.location.href = '/login';
     };
-
 
     return (
         <>
@@ -74,8 +63,7 @@ const Header: React.FC<HeaderProps> = ({ drawerWidth, open, handleDrawerToggle }
                     width: open ? `calc(100% - ${drawerWidth}px)` : '100%',
                     ml: open ? `${drawerWidth}px` : 0,
                     backgroundColor: theme.palette.background.paper,
-                    zIndex: theme.zIndex.drawer + 1, 
-                    // Thêm animation chuyển đổi mượt mà
+                    zIndex: theme.zIndex.drawer + 1,
                     transition: theme.transitions.create(['width', 'margin'], {
                         easing: theme.transitions.easing.sharp,
                         duration: theme.transitions.duration.leavingScreen,
@@ -83,34 +71,43 @@ const Header: React.FC<HeaderProps> = ({ drawerWidth, open, handleDrawerToggle }
                 }}
             >
                 <Toolbar>
-                    
-                    {/* KHẮC PHỤC: Icon Mở/Đóng Sidebar (MenuIcon) */}
+                    {/* Icon mở/đóng Sidebar */}
                     <IconButton
                         aria-label="open drawer"
-                        onClick={handleDrawerToggle} // <<< THÊM LẠI HÀM NÀY
+                        onClick={handleDrawerToggle}
                         edge="start"
-                        sx={{ 
-                            mr: 2, 
+                        sx={{
+                            mr: 2,
                             color: theme.palette.primary.main,
-                            // Xoay icon khi Sidebar đóng
                             transform: open ? 'rotate(0deg)' : 'rotate(180deg)',
                             transition: theme.transitions.create(['transform']),
-                        }} 
+                        }}
                     >
-                        {/* Bạn có thể dùng MenuIcon, hoặcChevronLeftIcon/ChevronRightIcon nếu thích */}
-                        <MenuIcon /> 
+                        <MenuIcon />
                     </IconButton>
 
-                    {/* Thanh tìm kiếm (Giữ nguyên) */}
-                    <Box sx={{ 
-                        position: 'relative', 
-                        borderRadius: 1, 
-                        backgroundColor: theme.palette.action.hover, 
-                        mr: 2, 
-                        ml: 4, 
-                        width: '300px' 
-                    }}>
-                        <Box sx={{ p: 1, height: '100%', position: 'absolute', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {/* Thanh tìm kiếm */}
+                    <Box
+                        sx={{
+                            position: 'relative',
+                            borderRadius: 1,
+                            backgroundColor: theme.palette.action.hover,
+                            mr: 2,
+                            ml: 4,
+                            width: '300px',
+                        }}
+                    >
+                        <Box
+                            sx={{
+                                p: 1,
+                                height: '100%',
+                                position: 'absolute',
+                                pointerEvents: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
                             <SearchIcon sx={{ color: theme.palette.text.secondary }} />
                         </Box>
                         <InputBase
@@ -119,65 +116,76 @@ const Header: React.FC<HeaderProps> = ({ drawerWidth, open, handleDrawerToggle }
                         />
                     </Box>
 
-                    <Box sx={{ flexGrow: 1 }} /> 
-                    
-                    {/* Các biểu tượng và Profile (Giữ nguyên) */}
+                    <Box sx={{ flexGrow: 1 }} />
+
+                    {/* Notification + Avatar */}
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        
-                        <IconButton 
-                            size="large" 
+                        <IconButton
+                            size="large"
                             sx={{ color: theme.palette.text.secondary }}
                             onClick={handleNotificationsBadgeClick}
                         >
-                            <Badge 
-                                badgeContent={hasUnreadNotifications ? '' : 0} 
-                                color="error" 
+                            <Badge
+                                badgeContent={hasUnreadNotifications ? '' : 0}
+                                color="error"
                                 variant="dot"
                             >
                                 <NotificationsIcon />
                             </Badge>
                         </IconButton>
 
-                        <Box 
-                            sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                ml: 3, 
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                ml: 3,
                                 cursor: 'pointer',
                                 p: 1,
                                 borderRadius: '4px',
-                                '&:hover': { bgcolor: 'action.hover' }
+                                '&:hover': { bgcolor: 'action.hover' },
                             }}
                             onClick={handleAccountClick}
                         >
-                            <Box sx={{ textAlign: 'right', mr: 1, display: { xs: 'none', sm: 'block' } }}>
-                                <Typography variant="body2" color="text.primary" fontWeight="bold">
-                                    {mockUser.name}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {mockUser.role}
-                                </Typography>
-                            </Box>
-                            <Avatar alt={mockUser.name} src={mockUser.avatarUrl} /> 
+                            {!loadingMe && me ? (
+                                <>
+                                    <Box
+                                        sx={{
+                                            textAlign: 'right',
+                                            mr: 1,
+                                            display: { xs: 'none', sm: 'block' },
+                                        }}
+                                    >
+                                        <Typography variant="body2" color="text.primary" fontWeight="bold">
+                                            {me.fullName || me.name}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {me.role || 'Admin'}
+                                        </Typography>
+                                    </Box>
+                                    <Avatar alt={me.fullName} src={me.avatarUrl} />
+                                </>
+                            ) : (
+                                <Typography variant="body2">Đang tải...</Typography>
+                            )}
                         </Box>
                     </Box>
                 </Toolbar>
             </AppBar>
 
-            {/* --- POPOVERs (Giữ nguyên) --- */}
+            {/* Popovers */}
             <NotificationPopover
                 open={isNotificationOpen}
                 anchorEl={notificationAnchorEl}
                 handleClose={handleNotificationClose}
                 markAllNotificationsSeen={markNotificationsRead}
             />
-            
+
             <AccountMenuPopover
                 open={isAccountOpen}
                 anchorEl={accountAnchorEl}
                 handleClose={handleAccountClose}
                 isLoggedIn={isLoggedIn}
-                user={mockUser}
+                user={me}
                 handleLogout={handleLogout}
             />
         </>

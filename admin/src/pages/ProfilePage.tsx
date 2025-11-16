@@ -1,173 +1,281 @@
-// src/pages/ProfilePage.tsx
-import React from 'react';
-import { Box, Typography, Paper, Stack, Divider, Chip, Button, useTheme } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import {
+    Box,
+    Typography,
+    Paper,
+    Stack,
+    Divider,
+    Chip,
+    Button,
+    CircularProgress,
+    Avatar,
+    TextField,
+    useTheme,
+    Snackbar,
+    Alert
+} from "@mui/material";
+import { UserStatusLabel } from "../utils/userStatus";
+import { useNavigate } from "react-router-dom";
+import EmailIcon from "@mui/icons-material/Email";
+import PhoneIcon from "@mui/icons-material/Phone";
+import MapIcon from "@mui/icons-material/Map";
+import LockIcon from "@mui/icons-material/Lock";
+import EditIcon from "@mui/icons-material/Edit";
+import LogoutIcon from "@mui/icons-material/Logout";
+import { useAdmin } from "../context/AdminContext";
+import { UserService } from "../services/userService";
 
-// Icons 
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import EmailIcon from '@mui/icons-material/Email';
-import PhoneIcon from '@mui/icons-material/Phone';
-import BusinessIcon from '@mui/icons-material/Business';
-import LockIcon from '@mui/icons-material/Lock';
-import EditIcon from '@mui/icons-material/Edit';
-import SettingsIcon from '@mui/icons-material/Settings';
-import LogoutIcon from '@mui/icons-material/Logout';
-import PersonIcon from '@mui/icons-material/Person'; // Icon cho Avatar nếu cần
-
-// --- Dữ liệu giả lập cho tài khoản đang đăng nhập ---
-interface CurrentUser {
-    name: string;
-    avatarUrl: string;
-    role: 'Super Admin' | 'Moderator' | 'Finance Admin' | 'Admin'; // Thêm 'Admin'
-    email: string;
-    phone: string;
-    status: 'Active' | 'On Leave';
-    lastLogin: string;
-    id: string; // Thêm ID để hiển thị
-    department: string; // Thêm Department để khớp giao diện
-}
-
-// CẬP NHẬT DỮ LIỆU MOCK THEO YÊU CẦU CỦA BẠN
-const mockProfileData: CurrentUser = {
-    id: 'admin001',
-    name: 'Đạt Cao',
-    avatarUrl: 'https://cdn.chotot.com/uac2/26732157', 
-    role: 'Admin', // Sử dụng Role 'Admin' bạn cung cấp
-    email: 'dat.cao@admin.com', 
-    phone: '098-765-4321', 
-    status: 'Active', 
-    lastLogin: '2025-10-30 13:00', // Giả lập thời gian hiện tại
-    department: 'Technology', // Dữ liệu bổ sung để khớp giao diện
-};
-
+const BASE_URL = "http://localhost:8000";
 
 const ProfilePage: React.FC = () => {
     const theme = useTheme();
     const navigate = useNavigate();
-    const profile = mockProfileData; // SỬ DỤNG DỮ LIỆU MỚI
+    const { me: contextUser, setMe, loadingMe } = useAdmin();
 
-    const getStatusChip = (status: 'Active' | 'On Leave') => {
-        const color = status === 'Active' ? 'success' : 'default';
-        return <Chip label={status} color={color} size="small" />;
-    };
+    const [profile, setProfile] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [editMode, setEditMode] = useState(false);
+    const [updating, setUpdating] = useState(false);
+    const [snackbar, setSnackbar] = useState<{ message: string; severity: "success" | "error" } | null>(null);
+
+    // Load profile từ context
+    useEffect(() => {
+        if (!contextUser) return;
+        setProfile({ ...contextUser });
+        setLoading(false);
+    }, [contextUser]);
 
     const handleLogout = () => {
-        if (window.confirm('Are you sure you want to log out?')) {
-            alert('Logged out successfully (Mock Action)!');
-            navigate('/login'); 
+        localStorage.removeItem("accessToken");
+        navigate("/login");
+    };
+
+    const getStatusChip = (status?: string) => {
+        if (!status) return null;
+
+        const text = UserStatusLabel[status] || "Unknown";
+        const color: "success" | "error" | "default" =
+            status === "Active" ? "success" :
+                status === "Banned" ? "error" : "default";
+
+        return <Chip label={text} color={color} size="small" variant="outlined" />;
+    };
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files?.[0]) return;
+        const file = e.target.files[0];
+        setProfile({
+            ...profile,
+            avatarFile: file,
+            avatarUrl: URL.createObjectURL(file), // preview tạm thời
+        });
+    };
+
+    const handleSaveProfile = async () => {
+        if (!profile) return;
+        try {
+            setUpdating(true);
+
+            // --- Tạo form data gửi lên backend ---
+            const formData = new FormData();
+            formData.append("UserFullName", profile.fullName || "");
+            formData.append("UserAddress", profile.address || "");
+            formData.append("ContactPhone", profile.contect || "");
+            if (profile.userBirthday?.trim()) {
+                const dateObj = new Date(profile.userBirthday);
+                if (!isNaN(dateObj.getTime())) {
+                    formData.append("UserBirthday", dateObj.toISOString());
+                }
+            }
+            if (profile.avatarFile) formData.append("Avatar", profile.avatarFile);
+
+            // --- Gửi lên backend ---
+            await UserService.updateProfile(formData);
+
+            // --- Lấy lại profile đầy đủ từ backend ---
+            const refreshed = await UserService.getProfile();
+            const normalized = {
+                id: refreshed.id,
+                userStatus: refreshed.UserStatus ?? 0,
+                fullName: refreshed.userFullName ?? "",
+                email: refreshed.email ?? "",
+                phone: refreshed.phone ?? "",
+                contect: refreshed.contactPhone ?? "",
+                address: refreshed.userAddress ?? "",
+                userBirthday: refreshed.userBirthday?.split("T")[0] ?? "",
+                role: refreshed.role ?? "Admin",
+                avatarUrl: refreshed.avatar
+                    ? `${BASE_URL}/identity${refreshed.avatar}`
+                    : profile.avatarUrl, // giữ preview nếu backend chưa trả avatar mới
+            };
+
+            // --- Cập nhật state profile ---
+            setProfile(normalized);
+
+            // --- Cập nhật context Header ---
+            setMe?.(normalized);
+
+            // --- Tắt chế độ edit và thông báo thành công ---
+            setEditMode(false);
+            setSnackbar({ message: "Cập nhật thành công", severity: "success" });
+        } catch (err: any) {
+            console.error(err);
+            setSnackbar({ message: err.message || "Cập nhật thất bại", severity: "error" });
+        } finally {
+            setUpdating(false);
         }
     };
 
+
+
+    if (loading || loadingMe)
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" height="60vh">
+                <CircularProgress />
+            </Box>
+        );
+
+    if (!profile)
+        return (
+            <Box textAlign="center" mt={5}>
+                <Typography>Không có dữ liệu người dùng.</Typography>
+            </Box>
+        );
+
     return (
-        <Box>
-            <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 4 }}>
-                {/* Hiển thị Avatar hoặc Icon */}
-                {profile.avatarUrl ? (
-                    <Box
-                        component="img"
+        <Box sx={{ px: { xs: 2, md: 6 }, py: 4 }}>
+            {/* Header */}
+            <Stack direction="row" alignItems="center" spacing={3} sx={{ mb: 4, pb: 2, borderBottom: `2px solid ${theme.palette.divider}` }}>
+                <Box sx={{ position: "relative" }}>
+                    <Avatar
                         src={profile.avatarUrl}
-                        alt={profile.name}
-                        sx={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                        alt={profile.fullName || profile.name}
+                        sx={{ width: 80, height: 80, border: `2px solid ${theme.palette.primary.main}` }}
                     />
-                ) : (
-                    <AccountCircleIcon color="primary" sx={{ fontSize: 40 }} />
-                )}
-                
-                <Typography variant="h4" fontWeight="bold">
-                    My Profile
-                </Typography>
+                    {editMode && (
+                        <input
+                            type="file"
+                            accept="image/*"
+                            style={{
+                                position: "absolute",
+                                width: "100%",
+                                height: "100%",
+                                top: 0,
+                                left: 0,
+                                opacity: 0,
+                                cursor: "pointer",
+                            }}
+                            onChange={handleAvatarChange}
+                        />
+                    )}
+                </Box>
+                <Box>
+                    <Typography variant="h4" fontWeight="bold">{profile.fullName || "My Profile"}</Typography>
+                    <Typography color="text.secondary">{profile.role || "Administrator"}</Typography>
+                </Box>
             </Stack>
 
-            {/* THAY THẾ GRID CONTAINER LỚN BẰNG STACK */}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={4}>
-                
-                {/* --- 1. THÔNG TIN CƠ BẢN (Stack chiếm 2/3) --- */}
-                <Box sx={{ width: { xs: '100%', md: '66.66%' } }}>
-                    <Paper sx={{ p: 4, borderRadius: '8px', boxShadow: theme.shadows[3] }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography variant="h5" fontWeight="bold">
-                                {profile.name}
-                            </Typography>
-                            {/* Dùng status mới */}
-                            {getStatusChip(profile.status)} 
+            <Stack direction={{ xs: "column", md: "row" }} spacing={4}>
+                {/* Thông tin cá nhân */}
+                <Box sx={{ width: { xs: "100%", md: "66%" } }}>
+                    <Paper sx={{ p: 4, borderRadius: 3, boxShadow: "0 4px 20px rgba(0,0,0,0.08)", transition: "0.3s", "&:hover": { boxShadow: "0 6px 25px rgba(0,0,0,0.12)" } }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                            <Typography variant="h5" fontWeight="bold">Thông tin cá nhân</Typography>
+                            {getStatusChip(profile.userStatus)}
                         </Stack>
-
-                        <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3 }}>
-                            {profile.role} | ID: {profile.id}
-                        </Typography>
 
                         <Divider sx={{ mb: 3 }} />
 
-                        {/* THAY THẾ GRID ITEM BÊN TRONG BẰNG STACK */}
-                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} flexWrap="wrap">
+                        <Stack spacing={2}>
                             {/* Email */}
-                            <Box sx={{ width: { xs: '100%', sm: '48%' } }}>
-                                <Stack spacing={1}>
-                                    <Typography color="text.secondary" component="div">
-                                        <EmailIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 1 }} /> **Email**
-                                    </Typography>
-                                    <Typography fontWeight="medium">{profile.email}</Typography>
-                                </Stack>
-                            </Box>
-                            
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <EmailIcon />
+                                <Typography color="text.secondary">Email</Typography>
+                                <Typography fontWeight="medium">{profile.email}</Typography>
+                            </Stack>
+
                             {/* Phone */}
-                            <Box sx={{ width: { xs: '100%', sm: '48%' } }}>
-                                <Stack spacing={1}>
-                                    <Typography color="text.secondary" component="div">
-                                        <PhoneIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 1 }} /> **Phone**
-                                    </Typography>
-                                    <Typography fontWeight="medium">{profile.phone}</Typography>
-                                </Stack>
-                            </Box>
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <PhoneIcon />
+                                <Typography color="text.secondary">Phone</Typography>
+                                <Typography fontWeight="medium">{profile.phone || "—"}</Typography>
+                            </Stack>
 
-                            {/* Department */}
-                            <Box sx={{ width: { xs: '100%', sm: '48%' } }}>
-                                <Stack spacing={1}>
-                                    <Typography color="text.secondary" component="div">
-                                        <BusinessIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 1 }} /> **Department**
-                                    </Typography>
-                                    <Typography fontWeight="medium">{profile.department}</Typography>
-                                </Stack>
-                            </Box>
+                            {/* Address */}
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <MapIcon />
+                                <Typography color="text.secondary">Address</Typography>
+                                {editMode ? (
+                                    <TextField
+                                        size="small"
+                                        value={profile.address || ""}
+                                        onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                                    />
+                                ) : (
+                                    <Typography fontWeight="medium">{profile.address || "—"}</Typography>
+                                )}
+                            </Stack>
 
-                            {/* Last Login */}
-                            <Box sx={{ width: { xs: '100%', sm: '48%' } }}>
-                                <Stack spacing={1}>
-                                    <Typography color="text.secondary" component="div">
-                                        <LockIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 1 }} /> **Last Login**
-                                    </Typography>
-                                    <Typography fontWeight="medium">{profile.lastLogin}</Typography>
-                                </Stack>
-                            </Box>
+                            {/* Birthday */}
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <span>🎂</span>
+                                <Typography color="text.secondary">Birthday</Typography>
+                                {editMode ? (
+                                    <TextField
+                                        type="date"
+                                        label="Ngày sinh"
+                                        value={profile.userBirthday ?? ""}
+                                        disabled={!editMode}
+                                        InputLabelProps={{ shrink: true }}
+                                        inputProps={{ max: new Date().toISOString().split("T")[0] }}
+                                        onChange={(e) =>
+                                            setProfile({ ...profile, userBirthday: e.target.value })
+                                        }
+                                    />
+                                ) : (
+                                    <Typography fontWeight="medium">{profile.userBirthday ? new Date(profile.userBirthday).toLocaleDateString("vi-VN") : "—"}</Typography>
+                                )}
+                            </Stack>
+
+                            {/* Contact Phone */}
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <PhoneIcon />
+                                <Typography color="text.secondary">Contact Phone</Typography>
+                                {editMode ? (
+                                    <TextField
+                                        size="small"
+                                        value={profile.contect || ""}
+                                        onChange={(e) => setProfile({ ...profile, contect: e.target.value })}
+                                    />
+                                ) : (
+                                    <Typography fontWeight="medium">{profile.contect || "—"}</Typography>
+                                )}
+                            </Stack>
                         </Stack>
                     </Paper>
                 </Box>
 
-                {/* --- 2. HÀNH ĐỘNG HỒ SƠ (Stack chiếm 1/3) --- */}
-                <Box sx={{ width: { xs: '100%', md: '33.33%' } }}>
-                    <Paper sx={{ p: 3, borderRadius: '8px', boxShadow: theme.shadows[1] }}>
-                        <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                            Profile Actions
-                        </Typography>
+                {/* Actions */}
+                <Box sx={{ width: { xs: "100%", md: "33.33%" } }}>
+                    <Paper sx={{ p: 3, borderRadius: 3, boxShadow: theme.shadows[1] }}>
+                        <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>Profile Actions</Typography>
+
                         <Stack spacing={1.5}>
-                            <Button 
-                                startIcon={<EditIcon />} 
-                                variant="outlined" 
+                            <Button
+                                startIcon={<EditIcon />}
+                                variant={editMode ? "contained" : "outlined"}
                                 fullWidth
+                                onClick={editMode ? handleSaveProfile : () => setEditMode(true)}
+                                disabled={updating}
                             >
-                                Edit Personal Info
+                                {editMode ? (updating ? "Saving..." : "Save Changes") : "Edit Personal Info"}
                             </Button>
-                            <Button 
-                                startIcon={<SettingsIcon />} 
-                                variant="outlined" 
-                                fullWidth
-                            >
-                                Change Password
-                            </Button>
+
                             <Divider sx={{ my: 1 }} />
-                            <Button 
-                                startIcon={<LogoutIcon />} 
-                                variant="contained" 
+
+                            <Button
+                                startIcon={<LogoutIcon />}
+                                variant="contained"
                                 color="error"
                                 fullWidth
                                 onClick={handleLogout}
@@ -178,6 +286,18 @@ const ProfilePage: React.FC = () => {
                     </Paper>
                 </Box>
             </Stack>
+
+            {/* Snackbar thông báo */}
+            {snackbar && (
+                <Snackbar
+                    open
+                    autoHideDuration={3000}
+                    onClose={() => setSnackbar(null)}
+                    anchorOrigin={{ vertical: "top", horizontal: "center" }}
+                >
+                    <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
+                </Snackbar>
+            )}
         </Box>
     );
 };

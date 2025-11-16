@@ -219,7 +219,6 @@ const ContentModerationPage: React.FC = () => {
             const data = await getProductsForModeration(
                 filterStatus, 
                 searchTerm, 
-                filterDate,
                 minPrice ? Number(minPrice) : null,
                 maxPrice ? Number(maxPrice) : null,
                 sellerId ? Number(sellerId) : null,
