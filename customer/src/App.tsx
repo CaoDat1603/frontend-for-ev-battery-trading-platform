@@ -33,6 +33,9 @@ import { ManageAuctionsPage } from './pages/ManageAuctionPage';
 // BỔ SUNG: Import LocationProvider
 import { LocationProvider } from './context/LocationContext'; 
 
+import InvoiceDetailPage from './pages/InvoiceDetailPage';
+import PaymentResultPage from './pages/PaymentResultPage';
+
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div style={{ padding: 50, textAlign: 'center' }}>
         <h1 style={{ color: '#1976d2' }}>{title}</h1>
@@ -224,7 +227,23 @@ const App: React.FC = () => (
                             <ManageAuctionsPage />
                         </LayoutMain>
                     }
-                />              
+                />   
+                <Route 
+                    path="invoice-detail/:postId" 
+                    element={
+                        <LayoutMain>
+                            <InvoiceDetailPage />
+                        </LayoutMain>
+                    } 
+                />
+                <Route 
+                    path="payment-result" 
+                    element={
+                        <LayoutMain>
+                            <PaymentResultPage />
+                        </LayoutMain>
+                    } 
+                />      
             </Routes>
         </BrowserRouter>
     </LocationProvider>

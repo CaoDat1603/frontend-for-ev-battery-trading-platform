@@ -90,6 +90,7 @@ interface ProductDetail extends ProductData {
     // Giữ nguyên ProductData DTO
     rating: number; // Thêm rating và count cho dễ xử lý review
     count: number;
+    buyerId: number;
     // Đã loại bỏ deadline
 }
 
@@ -109,6 +110,11 @@ const getSaleMethodChip = (method: SaleMethod): JSX.Element => {
     return <Chip label="Giá cố định" color="primary" icon={<ShoppingCartIcon style={{fontSize: 16}}/>} size="small" />;
 };
 
+const getCurrentUserId = (): number => {
+  const stored = localStorage.getItem('userId');
+  return stored ? parseInt(stored, 10) : 0;
+};
+
 
 const ProductDetailPage: React.FC = () => {
     const { postId } = useParams<{ postId: string }>(); 
@@ -122,6 +128,11 @@ const ProductDetailPage: React.FC = () => {
 
     const [showPdfViewer, setShowPdfViewer] = useState(false);
     const [openImageModal, setOpenImageModal] = useState(false);
+    // Thêm trạng thái để xử lý thanh toán
+    const [processingOrder, setProcessingOrder] = useState(false);
+
+    // Lấy ID người dùng từ localStorage
+    const buyerId = getCurrentUserId();
     
     // --- GỌI API VÀ XỬ LÝ DATA ---
     useEffect(() => {
@@ -135,6 +146,7 @@ const ProductDetailPage: React.FC = () => {
                     // Giả lập lấy dữ liệu từ API
                     const fetchedProductData: ProductData = await getProductById(idNumber);
                     const uiData = getFakeUIData(idNumber);
+                    const buyerId = getCurrentUserId();
 
                     // Chỉ hiển thị tin đăng đang 'Available' cho khách
                     if (fetchedProductData.statusProduct !== ProductStatusValue.Available) {
@@ -144,6 +156,7 @@ const ProductDetailPage: React.FC = () => {
                         setProduct({
                             ...fetchedProductData,
                             ...uiData, 
+                            buyerId
                         } as ProductDetail);
                     }
 
@@ -239,9 +252,17 @@ const ProductDetailPage: React.FC = () => {
             // Xử lý Đấu giá
             handleBidAction();
         } else {
-            // Xử lý Mua Ngay (Giá cố định)
-            console.log(`Sản phẩm ${product.productName} đã được thêm vào giỏ hàng!`);
-            // Thay thế alert bằng logic thêm vào giỏ hàng/snackbar
+            // Nếu là mua ngay: chuyển sang màn hình chi tiết hóa đơn
+            navigate(`/invoice-detail/${product.productId}`, {
+                state: {
+                    productId: product.productId,
+                    title: product.title,
+                    productName: product.productName,
+                    price: product.price,
+                    sellerId: product.sellerId,
+                    productType: product.productType,
+                },
+            });
         }
     };
 
