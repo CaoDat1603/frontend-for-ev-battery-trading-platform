@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
     Box, 
     Typography, 
@@ -11,57 +11,176 @@ import {
     ListItemAvatar, 
     Avatar, 
     useTheme, 
-    Stack // <<< ĐÃ THÊM STACK
+    Stack,
+    Alert,
+    CircularProgress,
 } from '@mui/material';
 import { MetricCard } from '../components/Cards/MetricCard';
 import SalesChart from '../components/Charts/SalesChart'; 
 import MessageIcon from '@mui/icons-material/Message';
 import GroupIcon from '@mui/icons-material/Group';
 
-// --- DỮ LIỆU GIẢ ĐỊNH (Giữ nguyên) ---
-const metrics = [
-    {
-        title: 'Doanh thu',
-        value: '$2,027',
-        subValue: 'USD',
-        comparisonPercentage: -12,
-        comparisonPeriod: 'last week',
-        chartColor: '#ff0000',
-    },
-    {
-        title: 'Lượt Khách hàng',
-        value: '227',
-        comparisonPercentage: 0,
-        comparisonPeriod: 'yesterday',
-        chartColor: '#05aa10ff',
-    },
-    {
-        title: 'Sản phẩm bán ra',
-        value: '127',
-        comparisonPercentage: 12,
-        comparisonPeriod: 'last week',
-        chartColor: '#05aa10ff',
-    },
-    {
-        title: 'Thanh toán đang chờ',
-        value: '12',
-        comparisonPercentage: 25,
-        comparisonPeriod: 'last week',
-        chartColor: '#ffc107',
-    },
-];
+import { OrderService, type Transaction } from '../services/orderService';
+import { getProductsForModeration, type ProductData } from '../services/productService';
 
-const topSellingItems = [
-    { name: 'Eco-Bag R-100', sales: 150, image: 'https://via.placeholder.com/40/0000FF/FFFFFF?text=B1' },
-    { name: 'Renewable Bottle V2', sales: 120, image: 'https://via.placeholder.com/40/FF0000/FFFFFF?text=B2' },
-    { name: 'Recycled Paper Set', sales: 90, image: 'https://via.placeholder.com/40/00FF00/FFFFFF?text=B3' },
-    { name: 'Solar Charger Mini', sales: 85, image: 'https://via.placeholder.com/40/FFFF00/000000?text=S1' },
-    { name: 'Compost Bin', sales: 60, image: 'https://via.placeholder.com/40/FFA500/FFFFFF?text=CB' },
-];
+interface MetricCardData {
+    title: string;
+    value: string;
+    subValue?: string;
+    comparisonPercentage: number;
+    comparisonPeriod: string;
+    chartColor: string;
+}
+
+interface TopSellingItem {
+    productId: number;
+    name: string;
+    sales: number;
+    image?: string | null;
+}
+
+const formatCurrencyVND = (amount: number): string => {
+    return new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND',
+        minimumFractionDigits: 0,
+    }).format(amount);
+};
+
+const isSuccessfulTransaction = (tx: Transaction): boolean => {
+    const status = (tx.transactionStatus || '').toLowerCase();
+    return (
+        status.includes('success') ||
+        status.includes('completed') ||
+        status.includes('paid')
+    );
+};
+
+const isPendingTransaction = (tx: Transaction): boolean => {
+    const status = (tx.transactionStatus || '').toLowerCase();
+    return (
+        status.includes('pending') ||
+        status.includes('created') ||
+        status.includes('processing')
+    );
+};
 
 const DashboardPage: React.FC = () => {
     const theme = useTheme();
     const userName = 'Admin';
+
+    const [metrics, setMetrics] = useState<MetricCardData[]>([]);
+    const [topSellingItems, setTopSellingItems] = useState<TopSellingItem[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const loadDashboardData = async () => {
+            setLoading(true);
+            setError(null);
+
+            try {
+                const [transactions, products] = await Promise.all([
+                    OrderService.getAllTransactions(),
+                    getProductsForModeration(
+                        'All',   // status
+                        '',      // searchTerm
+                        null,    // filterDate
+                        null,    // minPrice
+                        null,    // maxPrice
+                        null,    // sellerId
+                        undefined,    // pickupAddress
+                        undefined, // sortOrder
+                        null,    // saleMethod
+                        null,    // isSpam
+                        null,    // isVerified
+                        null,    // productType
+                        null     // createAt
+                    ),
+                ]);
+
+                // --- Metrics từ transaction ---
+                const totalPlatformRevenue = transactions.reduce(
+                    (sum, tx) => sum + (tx.platformAmount || 0),
+                    0
+                );
+
+                const uniqueBuyerIds = new Set<number>();
+                transactions.forEach((tx) => {
+                    if (tx.buyerId) uniqueBuyerIds.add(tx.buyerId);
+                });
+
+                const successfulTransactions = transactions.filter(isSuccessfulTransaction);
+                const pendingTransactions = transactions.filter(isPendingTransaction);
+
+                const metricsData: MetricCardData[] = [
+                    {
+                        title: 'Doanh thu nền tảng',
+                        value: formatCurrencyVND(totalPlatformRevenue),
+                        subValue: 'Tổng commission + service fee',
+                        comparisonPercentage: 0,
+                        comparisonPeriod: 'so với kỳ trước',
+                        chartColor: '#ff0000',
+                    },
+                    {
+                        title: 'Lượt khách hàng (buyer)',
+                        value: uniqueBuyerIds.size.toString(),
+                        subValue: 'Số buyer khác nhau có giao dịch',
+                        comparisonPercentage: 0,
+                        comparisonPeriod: 'toàn thời gian',
+                        chartColor: '#05aa10ff',
+                    },
+                    {
+                        title: 'Sản phẩm đã bán',
+                        value: successfulTransactions.length.toString(),
+                        subValue: 'Dựa trên giao dịch thành công',
+                        comparisonPercentage: 0,
+                        comparisonPeriod: 'toàn thời gian',
+                        chartColor: '#05aa10ff',
+                    },
+                    {
+                        title: 'Giao dịch đang chờ',
+                        value: pendingTransactions.length.toString(),
+                        subValue: 'Đang ở trạng thái Pending/Created',
+                        comparisonPercentage: 0,
+                        comparisonPeriod: 'hiện tại',
+                        chartColor: '#ffc107',
+                    },
+                ];
+
+                // --- Top selling items: dựa trên số giao dịch thành công theo product ---
+                const salesCountMap = new Map<number, number>();
+                successfulTransactions.forEach((tx) => {
+                    const current = salesCountMap.get(tx.productId) || 0;
+                    salesCountMap.set(tx.productId, current + 1);
+                });
+
+                const topEntries = Array.from(salesCountMap.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+
+                const topItems: TopSellingItem[] = topEntries.map(([productId, sales]) => {
+                    const product = products.find((p: ProductData) => p.productId === productId);
+                    return {
+                        productId,
+                        name: product?.title || `Product #${productId}`,
+                        sales,
+                        image: product?.imageUrl,
+                    };
+                });
+
+                setMetrics(metricsData);
+                setTopSellingItems(topItems);
+            } catch (err: any) {
+                console.error('Failed to load dashboard data', err);
+                setError(err?.message || 'Không thể tải dữ liệu tổng quan từ máy chủ.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        void loadDashboardData();
+    }, []);
 
     return (
         <Box>
@@ -69,28 +188,38 @@ const DashboardPage: React.FC = () => {
                 Welcome, {userName}!
             </Typography>
 
-            {/* --- 1. METRIC CARDS ROW (Dùng Stack thay Grid) --- */}
-            {/* chia 4 cột (md: 25%) */}
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            )}
+
+            {/* --- 1. METRIC CARDS ROW --- */}
             <Stack 
                 direction={{ xs: 'column', sm: 'row' }} 
                 spacing={3} 
                 sx={{ mb: 4 }}
             >
-                {metrics.map((metric, index) => (
-                    <Box key={index} sx={{ width: { xs: '100%', sm: '50%', md: '25%' } }}>
-                        <MetricCard {...metric} chartColor={metric.chartColor} />
+                {loading && metrics.length === 0 ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', py: 4 }}>
+                        <CircularProgress size={28} />
                     </Box>
-                ))}
+                ) : (
+                    metrics.map((metric, index) => (
+                        <Box key={index} sx={{ width: { xs: '100%', sm: '50%', md: '25%' } }}>
+                            <MetricCard {...metric} />
+                        </Box>
+                    ))
+                )}
             </Stack>
 
-            {/* --- 2. SALES CHART & TOP SELLING ROW (Dùng Stack thay Grid) --- */}
-            {/* chia 8/4 (md: 66.67% / 33.33%) */}
+            {/* --- 2. SALES CHART & TOP SELLING ROW --- */}
             <Stack 
                 direction={{ xs: 'column', md: 'row' }} 
                 spacing={3}
             >
                 
-                {/* 2.1. Sales Chart */}
+                {/* 2.1. Sales Chart (tạm thời vẫn dùng dữ liệu mock nội bộ của SalesChart) */}
                 <Box sx={{ width: { xs: '100%', md: '66.67%' } }}>
                     <Paper sx={{ p: 3, borderRadius: '8px', boxShadow: theme.shadows[1] }}>
                         <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -101,7 +230,7 @@ const DashboardPage: React.FC = () => {
                     </Paper>
                 </Box>
 
-                {/* 2.2. Top Selling Items */}
+                {/* 2.2. Top Selling Items (dựa trên transaction + products) */}
                 <Box sx={{ width: { xs: '100%', md: '33.33%' } }}>
                     <Paper sx={{ p: 3, borderRadius: '8px', boxShadow: theme.shadows[1], height: '100%' }}>
                         <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -109,29 +238,55 @@ const DashboardPage: React.FC = () => {
                         </Typography>
                         <Divider sx={{ my: 1 }} />
                         
-                        <List disablePadding>
-                            {topSellingItems.map((item, index) => (
-                                <ListItem key={index} disablePadding sx={{ py: 1, borderBottom: index < topSellingItems.length - 1 ? `1px solid ${theme.palette.divider}` : 'none' }}>
-                                    <ListItemAvatar>
-                                        <Avatar src={item.image} alt={item.name} variant="rounded" sx={{ width: 40, height: 40 }}/>
-                                    </ListItemAvatar>
-                                    <ListItemText 
-                                        primary={item.name} 
-                                        secondary={`Sold: ${item.sales} units`}
-                                        primaryTypographyProps={{ fontWeight: 'bold' }}
-                                    />
-                                    <Typography variant="body2" color="primary" fontWeight="bold">
-                                        #{index + 1}
-                                    </Typography>
-                                </ListItem>
-                            ))}
-                        </List>
+                        {loading && topSellingItems.length === 0 ? (
+                            <Box sx={{ height: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+                                <CircularProgress size={24} />
+                            </Box>
+                        ) : topSellingItems.length === 0 ? (
+                            <Box sx={{ height: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
+                                Chưa có giao dịch thành công nào.
+                            </Box>
+                        ) : (
+                            <List disablePadding>
+                                {topSellingItems.map((item, index) => (
+                                    <ListItem
+                                        key={item.productId}
+                                        disablePadding
+                                        sx={{
+                                            py: 1,
+                                            borderBottom:
+                                                index < topSellingItems.length - 1
+                                                    ? `1px solid ${theme.palette.divider}`
+                                                    : 'none',
+                                        }}
+                                    >
+                                        <ListItemAvatar>
+                                            <Avatar
+                                                src={item.image || undefined}
+                                                alt={item.name}
+                                                variant="rounded"
+                                                sx={{ width: 40, height: 40 }}
+                                            >
+                                                {item.name.charAt(0)}
+                                            </Avatar>
+                                        </ListItemAvatar>
+                                        <ListItemText 
+                                            primary={item.name} 
+                                            secondary={`Sold: ${item.sales} units`}
+                                            primaryTypographyProps={{ fontWeight: 'bold' }}
+                                        />
+                                        <Typography variant="body2" color="primary" fontWeight="bold">
+                                            #{index + 1}
+                                        </Typography>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        )}
                     </Paper>
                 </Box>
             </Stack>
             
-            {/* --- 3. KHU VỰC DƯỚI (Dùng Stack thay Grid) --- */}
-            {/* chia 6/6 (md: 50% / 50%) */}
+            {/* --- 3. KHU VỰC DƯỚI (giữ placeholder, sẽ nối User/Chat service sau) --- */}
             <Stack 
                 direction={{ xs: 'column', md: 'row' }} 
                 spacing={3} 
@@ -145,7 +300,7 @@ const DashboardPage: React.FC = () => {
                         </Typography>
                         <Box sx={{ height: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
                             <GroupIcon sx={{ mr: 1 }}/>
-                            [Bảng khách hàng gần đây]
+                            [Bảng khách hàng gần đây - sẽ kết nối API User sau]
                         </Box>
                     </Paper>
                 </Box>
@@ -158,7 +313,7 @@ const DashboardPage: React.FC = () => {
                         </Typography>
                         <Box sx={{ height: 250, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
                             <MessageIcon sx={{ mr: 1 }}/>
-                            [Danh sách tin nhắn cần phản hồi]
+                            [Danh sách tin nhắn cần phản hồi - sẽ kết nối API Chat/Support sau]
                         </Box>
                     </Paper>
                 </Box>
