@@ -35,12 +35,15 @@ import { useLocationContext } from '../context/LocationContext';
 // Import constants & data
 import { LOCATION_STORAGE_KEY } from '../utils/constants';
 import { VIETNAM_PROVINCES, type Province, type District } from '../data/vietnamLocations';
-
+import { NotificationService } from '../services/notificationService';
 
 // --- DỮ LIỆU CỐ ĐỊNH ---
 const ALL_VIETNAM_OPTION: Province = { id: 0, name: 'Toàn quốc', districts: [] };
 const LOCATION_DATA = VIETNAM_PROVINCES;
-
+const getLoggedInUserId = (): number | null => {
+    const userIdStr = localStorage.getItem("userId");
+    return userIdStr ? parseInt(userIdStr) : null;
+};
 // --- CUSTOM COMPONENT LOCATION SELECT ---
 interface LocationSelectProps {
     onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
@@ -113,7 +116,43 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
     const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
     const isPopoverOpen = Boolean(anchorEl);
 
-    // ********** LOGIC TÌM KIẾM QUAN TRỌNG **********
+    const [unreadCount, setUnreadCount] = useState<number>(0);
+    const handleUpdateUnreadCount = (count: number) => {
+        setUnreadCount(count);
+    };
+
+
+    // ********** LOGIC TẢI SỐ LƯỢNG THÔNG BÁO CHƯA ĐỌC LÚC KHỞI TẠO **********
+    const fetchUnreadCount = async () => {
+        const userId = getLoggedInUserId();
+        if (!userId) {
+            setUnreadCount(0);
+            return;
+        }
+        
+        try {
+            // Tải toàn bộ danh sách, sau đó đếm số lượng chưa đọc (Giả định NotificationService.getByUser trả về tất cả)
+            const data = await NotificationService.getByUser(userId);
+            const count = data.filter(n => !n.isRead).length;
+            setUnreadCount(count);
+        } catch (error) {
+            console.error("Lỗi tải số lượng thông báo chưa đọc:", error);
+            setUnreadCount(0);
+        }
+    };
+    
+    // ********** HIỆU ỨNG 2: TẢI SỐ LƯỢNG THÔNG BÁO KHI ĐĂNG NHẬP **********
+    useEffect(() => {
+        if (isLoggedIn) {
+            fetchUnreadCount();
+        } else {
+            // Reset nếu người dùng đăng xuất
+            setUnreadCount(0);
+        }
+        // Dependency: isLoggedIn để chạy lại khi trạng thái đăng nhập thay đổi
+    }, [isLoggedIn]); 
+
+    // ********** LOGIC TÌM KIẾM QUAN TRỌNG (Giữ nguyên) **********
     const handleSearchSubmit = () => {
         // GỌI CALLBACK CHO SEARCH
         onSearch(searchTerm);
@@ -202,10 +241,16 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
 
     const [anchorElNoti, setAnchorElNoti] = useState<null | HTMLElement>(null);
     const isNotiOpen = Boolean(anchorElNoti);
-    const handleNotiOpen = (event: ReactMouseEvent<HTMLElement>) => { if (!isLoggedIn) { handleLoginRedirect(); return; } setAnchorElNoti(event.currentTarget); };
-    const handleNotiClose = () => { setAnchorElNoti(null); };
 
-    const [hasNewNotifications, setHasNewNotifications] = useState(true);
+
+    const handleNotiOpen = (event: ReactMouseEvent<HTMLElement>) => { 
+        if (!isLoggedIn) { 
+            handleLoginRedirect(); 
+            return; 
+        } 
+        setAnchorElNoti(event.currentTarget); 
+    };
+    const handleNotiClose = () => { setAnchorElNoti(null); };
     const [isAuctionActive, setIsAuctionActive] = useState(true);
     //const userSavedPosts: SavedPost[] = mockSavedPosts;
     const open = Boolean(anchorEl);
@@ -320,7 +365,12 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                     <IconButton color="inherit" aria-label="favorites" onClick={handleSavedOpen}><FavoriteBorderIcon /></IconButton>
 
                     {/* NÚT THÔNG BÁO */}
-                    <Badge variant="dot" color="error" invisible={!hasNewNotifications}>
+                    <Badge 
+                        badgeContent={unreadCount} // Hiển thị số lượng TẢI TRƯỚC
+                        color="error" 
+                        max={9} // Giới hạn hiển thị
+                        invisible={unreadCount === 0}
+                    >
                         <IconButton color="inherit" aria-label="notifications" onClick={handleNotiOpen}>
                             <NotificationsNoneIcon />
                         </IconButton>
@@ -413,7 +463,12 @@ export const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                 anchorEl={anchorElSaved} 
                 handleClose={handleSavedClose} 
             />
-            <NotificationPopover open={isNotiOpen} anchorEl={anchorElNoti} handleClose={handleNotiClose} />
+            <NotificationPopover 
+                open={isNotiOpen} 
+                anchorEl={anchorElNoti} 
+                handleClose={handleNotiClose} 
+                onUpdateUnreadCount={handleUpdateUnreadCount} 
+            />
 
         </AppBar>
     );

@@ -7,6 +7,7 @@ import { CssBaseline } from '@mui/material';
 import { UserProvider } from "./context/UserContext";
 import { WishlistProvider } from './context/WishlistContext';
 import { customTheme } from './theme/customTheme'; // Giả định file này tồn tại
+import { NotificationListener } from './components/NotificationListener.tsx';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -14,6 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <CssBaseline />
       <UserProvider>
       <WishlistProvider>
+      <NotificationListener />
       <App />
     </WishlistProvider>
     </UserProvider>

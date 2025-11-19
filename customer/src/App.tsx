@@ -35,6 +35,12 @@ import { LocationProvider } from './context/LocationContext';
 
 import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import PaymentResultPage from './pages/PaymentResultPage';
+import CreateComplaint from './pages/Complaint/CreateComplaint';
+import CreateProductRatePage from './pages/Rate/CreateProductRatePage';
+import CreateUserRatePage from './pages/Rate/CreateUserRatePage';
+import ViewRatesPage from './pages/Rate/ViewRatesPage';
+import UserComplaintList from './pages/Complaint/UserComplaintList';
+import ComplaintDetail from './pages/Complaint/ComplaintDetail';
 
 const PlaceholderPage = ({ title }: { title: string }) => (
     <div style={{ padding: 50, textAlign: 'center' }}>
@@ -243,7 +249,68 @@ const App: React.FC = () => (
                             <PaymentResultPage />
                         </LayoutMain>
                     } 
-                />      
+                />
+                <Route
+                    path="/view-rates" // Có thể thay đổi
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <ViewRatesPage />
+                        </LayoutMain>
+                    }
+                />
+                <Route
+                    path="/create-user-rate" // Có thể thay đổi
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <CreateUserRatePage />
+                        </LayoutMain>
+                    }
+                />
+
+                {/* 3. Tạo Đánh Giá Product */}
+                <Route
+                    path="/create-product-rate" // Có thể thay đổi
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <CreateProductRatePage />
+                        </LayoutMain>
+                    }
+                />
+                {/* 1. Trang Tạo mới complaint */}
+                <Route
+                    path="/create-complaint"
+                    element={
+                    <LayoutMain>
+                        <ScrollToTop />
+                        <CreateComplaint />
+                    </LayoutMain>
+                    }
+                />
+                
+                {/* 2. Trang Chi tiết complaint (Dùng Path Parameter) */}
+                <Route
+                    path="/complaints/:complaintId"
+                    element={
+                    <LayoutMain>
+                        <ScrollToTop />
+                        <ComplaintDetail />
+                    </LayoutMain>
+                    }
+                />
+                
+                {/* 3. Trang Danh sách complaint theo User (Dùng Query Parameter) */}
+                <Route
+                    path="/user-complaints"
+                    element={
+                    <LayoutMain>
+                        <ScrollToTop />
+                        <UserComplaintList />
+                    </LayoutMain>
+                    }
+                />        
             </Routes>
         </BrowserRouter>
     </LocationProvider>

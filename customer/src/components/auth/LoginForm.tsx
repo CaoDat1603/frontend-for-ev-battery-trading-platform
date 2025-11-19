@@ -25,6 +25,7 @@ const LoginForm: React.FC = () => {
       const result = await AuthService.login(payload);
       localStorage.setItem("accessToken", result.token);
       localStorage.setItem("role", result.role);
+      localStorage.setItem("userId", result.userId.toString());
       alert(`Đăng nhập thành công! Chào ${result.fullName}`);
       if (result.role === "Admin") {
       window.location.href = "http://localhost:3000/users";  
