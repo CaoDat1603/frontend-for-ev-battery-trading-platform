@@ -28,9 +28,10 @@ import {
 } from '../services/productService'; 
 import { useLocationContext } from '../context/LocationContext'; 
 
-// 🚨 IMPORT DỮ LIỆU TỈNH THÀNH CHÍNH XÁC
 import { VIETNAM_PROVINCES } from '../data/vietnamLocations'; 
 import { useRef } from 'react'; // Bổ sung useRef
+
+import { useLocation } from 'react-router-dom';
 
 // --- TRÍCH XUẤT DỮ LIỆU ĐỊA ĐIỂM SỬ DỤNG TRONG COMPONENT ---
 // Danh sách tên các tỉnh/thành phố lớn (dùng cho sidebar)
@@ -149,8 +150,13 @@ interface EcycleCategoryPageProps {
 
 export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearchTerm }) => {
     const theme = useTheme();
-    
-    // 🚨 LẤY LOCATION TỪ CONTEXT
+    const location = useLocation();
+
+    const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+    const urlSellerId = queryParams.get('sellerId');
+    const initialSellerId = urlSellerId ? parseInt(urlSellerId, 10) : undefined;
+
+    // LẤY LOCATION TỪ CONTEXT
     const { activeLocationName } = useLocationContext(); 
     
     // --- State cho API và Phân trang ---
@@ -176,6 +182,7 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
     const [priceMenuAnchorEl, setPriceMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [saleMethodMenuAnchorEl, setSaleMethodMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [typeMenuAnchorEl, setTypeMenuAnchorEl] = useState<null | HTMLElement>(null);
+    const [sellerIdFilter, setSellerIdFilter] = useState<number | undefined>(initialSellerId);
 
     // Tính toán tổng số trang dựa trên totalPosts thực tế
     const totalPages = Math.ceil(totalPosts / itemsPerPage);
@@ -314,6 +321,7 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
         setIsVerifiedFilter(undefined); 
         setActiveProductType(undefined);
         setActiveSortOption('newest'); 
+        setSellerIdFilter(undefined);
     };
 
     // Hàm ánh xạ dữ liệu ProductData từ API sang PostData cho PostCard
@@ -345,6 +353,7 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
             searchTerm: globalSearchTerm || '',
             minPrice: minPriceFilter,
             maxPrice: maxPriceFilter,
+            sellerId: sellerIdFilter,
             pickupAddress: finalPickupAddress, 
             saleMethod: activeSaleMethod,
             isVerified: isVerifiedFilter,
@@ -354,7 +363,7 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
     }, [
         globalSearchTerm, minPriceFilter, maxPriceFilter, 
         activePickupAddress, activeSaleMethod, isVerifiedFilter, 
-        activeSortOption, activeLocationName, activeProductType // Lắng nghe Context
+        activeSortOption, activeLocationName, activeProductType, sellerIdFilter // Lắng nghe Context
     ]);
     
     // Sử dụng useRef để lưu trữ giá trị filters trước đó
@@ -375,14 +384,14 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
                     currentFilters.searchTerm,
                     currentFilters.minPrice,
                     currentFilters.maxPrice,
-                    undefined,        
+                    currentFilters.sellerId,
                     currentFilters.pickupAddress,
-                    currentFilters.sortBy,     
+                    currentFilters.sortBy, 
                     currentFilters.saleMethod,
-                    currentFilters.isVerified,  
-                    currentFilters.productType,          
-                    page,                
-                    itemsPerPage         
+                    currentFilters.isVerified,
+                    currentFilters.productType, 
+                    page, 
+                    itemsPerPage 
                 ),
                 // Lấy tổng số lượng (Đảm bảo truyền CÙNG tham số lọc)
                 countProduct(
@@ -390,7 +399,7 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
                     currentFilters.searchTerm,
                     currentFilters.minPrice,
                     currentFilters.maxPrice,
-                    undefined, 
+                    currentFilters.sellerId,
                     currentFilters.pickupAddress,
                     currentFilters.saleMethod,
                     false, 
@@ -638,6 +647,17 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
                         deleteIcon={<CloseIcon />}
                         color="secondary"
                         variant="outlined"
+                        sx={{ textTransform: 'none', fontWeight: 'medium' }}
+                    />
+                )}
+                
+                {sellerIdFilter !== undefined && (
+                    <Chip
+                        label={`Người bán ID: ${sellerIdFilter}`}
+                        onDelete={() => setSellerIdFilter(undefined)} 
+                        deleteIcon={<CloseIcon />}
+                        color="error"
+                        variant="filled"
                         sx={{ textTransform: 'none', fontWeight: 'medium' }}
                     />
                 )}

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 // Thêm useNavigate để chuyển hướng
 import { useSearchParams, useNavigate } from "react-router-dom"; 
+// >>> BỔ SUNG: Import hook useUser
+import { useUser } from "../../context/UserContext"; 
 
 import { RateService } from "../../services/rateService"; 
 import type { RateResponse, RateImageDto, RateListResponse } from "./RateResponse"; 
@@ -19,7 +21,7 @@ const RateImage: React.FC<{ image: RateImageDto }> = ({ image }) => {
             <img 
                 // Sử dụng URL tuyệt đối
                 src={fullImageUrl} 
-                alt={`Ảnh đánh giá ${image.rateImageId}`} // Đổi imageId thành rateImageId
+                alt={`Ảnh đánh giá ${image.rateImageId}`} 
                 style={{ 
                     width: '100px', 
                     height: '100px', 
@@ -52,7 +54,7 @@ const RateItem: React.FC<{ rate: RateResponse }> = ({ rate }) => {
     // Sử dụng các trường bạn đã chỉ định (kể cả lỗi chính tả nếu có)
     const reviewerName = rate.reviwerIsName || rate.userName || `User ${rate.rateBy}`;
     
-    // --- BƯỚC MỚI: XỬ LÝ URL AVATAR ---
+    // --- XỬ LÝ URL AVATAR ---
     let reviewerAvatar = 'https://via.placeholder.com/50'; // Avatar mặc định
     if (rate.reviwerIsAvartar) {
         // Kiểm tra nếu là URL tương đối (bắt đầu bằng /)
@@ -130,10 +132,14 @@ const RateItem: React.FC<{ rate: RateResponse }> = ({ rate }) => {
 const ViewRatesPage: React.FC = () => {
     // Thêm useNavigate
     const navigate = useNavigate(); 
+    // >>> BỔ SUNG: Lấy thông tin người dùng hiện tại
+    const { user } = useUser();
+    const currentUserId = user?.userId?.toString(); // Chuyển userId sang string để so sánh
+    
     // Đọc cả hai tham số từ URL
     const [searchParams] = useSearchParams();
     const urlUserId = searchParams.get("userId");
-    const urlProductId = searchParams.get("productId"); // Thêm đọc productId
+    const urlProductId = searchParams.get("productId");
 
     // Xác định ID nào được sử dụng và tiêu đề hiển thị
     let targetId = urlUserId || urlProductId;
@@ -161,10 +167,8 @@ const ViewRatesPage: React.FC = () => {
             
             // Gọi service tương ứng
             if (type === 'User') {
-                // Giả định getRatingByUserId tồn tại trong RateService và trả về RateListResponse
                 result = await RateService.getRatingByUserId(idToFetch);
             } else if (type === 'Product') {
-                // Giả định getRatingByProductId tồn tại trong RateService và trả về RateListResponse
                 result = await RateService.getRatingByProductId(idToFetch); 
             } else {
                 return; // Không nên xảy ra
@@ -181,7 +185,6 @@ const ViewRatesPage: React.FC = () => {
 
     // useEffect để tự động chạy khi URL thay đổi
     useEffect(() => {
-        // Lấy lại các giá trị mới nhất
         const currentTargetId = urlUserId || urlProductId;
         const currentTargetType = urlUserId ? 'User' : (urlProductId ? 'Product' : null);
 
@@ -191,40 +194,24 @@ const ViewRatesPage: React.FC = () => {
             setRateData(null);
             setError("Vui lòng cung cấp User ID (?userId=...) hoặc Product ID (?productId=...) trong URL.");
         }
-    }, [urlUserId, urlProductId, handleFetchRates]); // Tự động gọi khi urlUserId hoặc urlProductId thay đổi
+    }, [urlUserId, urlProductId, handleFetchRates]); 
 
-    // --- BƯỚC MỚI: Xử lý chuyển hướng tạo đánh giá ---
+    // --- LOGIC CHUYỂN HƯỚNG VÀ TẠO RATING (Dùng V2) ---
     const handleCreateRate = () => {
         if (urlUserId) {
             // Chuyển hướng đến trang tạo đánh giá cho User
-            navigate(`/create-user-rate?userId=${urlUserId}`);
-        } else if (urlProductId) {
-            // Chuyển hướng đến trang tạo đánh giá cho Product
-            navigate(`/create-product-rate?productId=${urlProductId}`);
-        }
-        // Giả định URL là `/create-rate-form` và nhận `userId` hoặc `productId` làm tham số
-    };
-    // Thay đổi URL theo yêu cầu: /create-product-rate?userId={userId} (Giả sử bạn nhầm thành create-product-rate)
-    // Nếu bạn muốn URL là: /create-product-rate?userId={userId} hoặc /create-product-rate?productId={productId}, 
-    // bạn cần điều chỉnh service và API backend. Tạm thời, tôi sẽ sử dụng:
-    // User -> /create-rate-form?userId={userId} 
-    // Product -> /create-rate-form?productId={productId} 
-    // Nếu URL đích của bạn là `/create-product-rate` cho cả hai, bạn cần kiểm tra lại logic nghiệp vụ.
-    // Dựa trên yêu cầu của bạn: urlUser có thì url nó chuyển là: /create-product-rate?userId={userId} VÀ TƯƠNG TỰ VỚI PRODUCT.
-    // Tôi sẽ sửa lại hàm handleCreateRate theo format bạn yêu cầu:
-    const handleCreateRate_V2 = () => {
-        if (urlUserId) {
-            // Chuyển hướng đến trang tạo đánh giá (cho Product, nhưng dùng userId)
-            // Lưu ý: Tên URL `/create-product-rate` thường dành cho Product. 
-            // Nếu bạn muốn tạo đánh giá cho USER, URL nên là `/create-user-rate`.
-            // Tôi giữ nguyên theo format URL bạn yêu cầu:
-            navigate(`/create-rate-form?userId=${urlUserId}`); 
+            navigate(`/create-rate-form?userId=${urlUserId}`);
         } else if (urlProductId) {
             // Chuyển hướng đến trang tạo đánh giá cho Product
             navigate(`/create-rate-form?productId=${urlProductId}`);
         }
     };
-    // Tôi sẽ sử dụng `handleCreateRate_V2` với URL chung là `/create-rate-form` và tham số query tương ứng.
+
+    // --- LOGIC ẨN NÚT ---
+    // Điều kiện ẩn nút tạo đánh giá khi:
+    // 1. URL có userId (đang xem đánh giá của User) VÀ
+    // 2. userId trong URL bằng userId của người dùng đang đăng nhập
+    const shouldHideCreateButton = !!urlUserId && (urlUserId === currentUserId);
 
     return (
         <div style={{ maxWidth: '850px', margin: '0 auto', padding: '30px', backgroundColor: '#f4f7fa', minHeight: '100vh' }}>
@@ -272,8 +259,8 @@ const ViewRatesPage: React.FC = () => {
                 )
             )}
             
-            {/* --- BƯỚC MỚI: Nút Tạo Đánh Giá --- */}
-            {targetId && targetType && (
+            {/* --- Nút Tạo Đánh Giá CÓ ĐIỀU KIỆN ẨN --- */}
+            {targetId && targetType && !shouldHideCreateButton && (
                 <div style={{ textAlign: 'center', marginTop: '30px' }}>
                     <button
                         onClick={handleCreateRate}
@@ -289,8 +276,6 @@ const ViewRatesPage: React.FC = () => {
                             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
                             transition: 'background-color 0.3s, transform 0.1s',
                         }}
-                        // Có thể thêm hiệu ứng hover nếu sử dụng CSS modules hoặc styled-components
-                        // Hoặc sử dụng inline style: onMouseEnter/onMouseLeave
                     >
                         ➕ Gửi Đánh Giá Mới cho {targetType} ID {targetId}
                     </button>

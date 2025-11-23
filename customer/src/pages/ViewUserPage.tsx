@@ -4,83 +4,61 @@ import {
   Box,
   Avatar,
   Typography,
-  Card,
-  CardContent,
   Tabs,
   Tab,
-  Rating,
   Button,
   CircularProgress,
+  Divider, // Thêm Divider để phân chia
+  Paper, // Thêm Paper để tạo khối nền
 } from "@mui/material";
 import { useUser } from "../context/UserContext";
 import { UserService } from "../services/userService";
-import { useParams } from "react-router-dom";
-
-// Mock data cho sản phẩm & đánh giá
-interface Product {
-  id: number;
-  name: string;
-  image: string;
-  price: string;
-}
-
-interface Review {
-  id: number;
-  reviewer: string;
-  comment: string;
-  rating: number;
-}
-
-const mockProducts: Product[] = [
-  { id: 1, name: "Áo Khoác Denim", image: "https://via.placeholder.com/150", price: "250.000đ" },
-  { id: 2, name: "Chân Váy Bubble", image: "https://via.placeholder.com/150", price: "180.000đ" },
-  { id: 3, name: "Áo Thun Slimfit", image: "https://via.placeholder.com/150", price: "200.000đ" },
-  { id: 4, name: "Đầm Đỏ Verita", image: "https://via.placeholder.com/150", price: "320.000đ" },
-];
-
-const mockReviews: Review[] = [
-  { id: 1, reviewer: "Nguyen Van B", comment: "Sản phẩm tốt!", rating: 5 },
-  { id: 2, reviewer: "Tran Thi C", comment: "Giao hàng nhanh", rating: 4 },
-];
+import { useParams, useNavigate } from "react-router-dom";
+import StorefrontIcon from '@mui/icons-material/Storefront'; // Icon Sản phẩm
+import StarRateIcon from '@mui/icons-material/StarRate'; // Icon Đánh giá
 
 // Kiểu dữ liệu cho viewedUser
 interface ViewedUser {
-  id?: number | null,
+  id?: number | null;
   userFullName: string;
   avatarUrl?: string;
 }
 
 const ViewUserPage: React.FC = () => {
-  const { user: me, loading } = useUser();
+  const { user: me, loading: loadingContext } = useUser();
   const { userId } = useParams<{ userId: string }>();
+  const navigate = useNavigate();
   const parsedUserId = userId ? parseInt(userId, 10) : undefined;
 
-  const [tabIndex, setTabIndex] = useState(0);
+  const [tabIndex, setTabIndex] = useState(0); // Vẫn giữ Tab Index cho cấu trúc chung
   const [viewedUser, setViewedUser] = useState<ViewedUser | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
   // Fetch user từ API
   useEffect(() => {
     const fetchUser = async () => {
+      setLoadingUser(true);
       try {
         if (!parsedUserId || parsedUserId === me?.userId) {
           setViewedUser({
-            userFullName: me?.userFullName || "",
+            id: me?.userId,
+            userFullName: me?.userFullName || "Tôi",
             avatarUrl: me?.avatarUrl,
           });
         } else {
           const data = await UserService.getUserById(parsedUserId);
-          
+
           setViewedUser({
             id: data.userId,
-            userFullName: data.fullname || "Người khác",
+            userFullName: data.fullname || "Người dùng không xác định",
             avatarUrl: `http://localhost:8000/identity${data.avatar}`,
           });
         }
       } catch (err) {
-        console.error("ViewPage:" + err);
+        console.error("ViewPage:", err);
         setViewedUser({
-          userFullName: "Người khác",
+          id: parsedUserId,
+          userFullName: "Không tìm thấy người dùng",
           avatarUrl: undefined,
         });
       } finally {
@@ -91,114 +69,141 @@ const ViewUserPage: React.FC = () => {
     fetchUser();
   }, [parsedUserId, me]);
 
-  if (loading || loadingUser || !viewedUser)
+  if (loadingContext || loadingUser || !viewedUser) {
     return <CircularProgress sx={{ display: "block", mx: "auto", mt: 6 }} />;
+  }
 
-  // Tính thống kê mock
-  const productsCount = mockProducts.length;
-  const reviewsCount = mockReviews.length;
-  const avgRating =
-    mockReviews.reduce((sum, r) => sum + r.rating, 0) / reviewsCount || 0;
+  const viewedUserId = viewedUser.id;
+  const isMe = viewedUserId === me?.userId;
 
-  const isMe = !parsedUserId || parsedUserId === me?.userId;
+  const handleViewProducts = () => {
+    if (viewedUserId) {
+      navigate(`/search-post?userId=${viewedUserId}`);
+    }
+  };
 
+  const handleViewRates = () => {
+    if (viewedUserId) {
+      navigate(`/view-rates?userId=${viewedUserId}`);
+    }
+  };
+  
+  // Chúng ta không dùng Tabs cho nội dung, nên chỉ dùng để cấu trúc.
+  // Có thể xóa hàm này nếu không dùng Tabs thực tế:
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) =>
     setTabIndex(newValue);
-
+    
   return (
-    <Box sx={{ width: "100%", minHeight: "100vh", backgroundColor: "#f5f5f5", pb: 6 }}>
-      {/* Header + User Info */}
-      <Box
-        sx={{
-    backgroundColor: "#fff",
-    p: 3,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between", // dàn đều hai khối
-    borderBottom: "1px solid #e6e6e6",
-    width: "100%",
-    px: { xs: 20, md: 20 }, // padding trái/phải của khung trắng
-  }}
+    <Box sx={{ 
+        width: "100%", 
+        minHeight: "100vh", 
+        backgroundColor: "#eef2f6", // Nền nhạt
+        py: 5, 
+        px: { xs: 2, md: 5 } 
+    }}>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+            maxWidth: 800, 
+            mx: 'auto', 
+            borderRadius: 2, 
+            overflow: 'hidden' 
+        }}
       >
-        {/* Left: avatar + name + action */}
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-    <Avatar src={viewedUser.avatarUrl} sx={{ width: 96, height: 96 }} />
-    <Box>
-      <Typography variant="h6" fontWeight="700" noWrap>
-        {viewedUser.userFullName}
-      </Typography>
-      <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
-        
-      </Box>
-    </Box>
-  </Box>
+        {/* Banner Placeholder (Có thể dùng cho ảnh bìa sau này) */}
+        <Box sx={{ 
+            height: 120, 
+            backgroundColor: '#42a5f5', // Màu xanh dương nổi bật
+            backgroundImage: 'linear-gradient(135deg, #42a5f5 0%, #007bb2 100%)',
+        }} />
 
-  {/* Thống kê dạng cột */}
-  <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, textAlign: "left" }}>
-    <Typography variant="body2" color="text.secondary">
-      Sản phẩm: <strong>{productsCount}</strong>
-    </Typography>
-    <Typography variant="body2" color="text.secondary">
-      Đánh giá: <strong>{avgRating.toFixed(1)} ★</strong> ({reviewsCount} đánh giá)
-    </Typography>
-  </Box>
-</Box>
+        {/* 1. Header: Avatar và Tên */}
+        <Box sx={{ 
+            px: 4, 
+            pt: 0, 
+            pb: 4, 
+            position: 'relative',
+            mt: -6, // Kéo lên trên banner
+        }}>
+            
+          <Box sx={{ display: "flex", alignItems: "flex-end", gap: 3 }}>
+            {/* Avatar lớn */}
+            <Avatar 
+              src={viewedUser.avatarUrl} 
+              sx={{ 
+                width: 120, 
+                height: 120,
+                border: '4px solid #fff',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.2)',
+              }} 
+            />
+            
+            {/* Tên và Thông tin */}
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="h4" fontWeight="bold" color="text.primary">
+                {viewedUser.userFullName}
+              </Typography>
+              <Typography variant="subtitle1" color="text.secondary">
+                 {isMe ? "Thông tin người dùng" : `User ID: ${viewedUserId}`}
+              </Typography>
+            </Box>
+          </Box>
+          
+          <Divider sx={{ my: 3 }} />
 
-      {/* Tabs */}
-      <Box sx={{ backgroundColor: "#fff", borderBottom: "1px solid #e6e6e6" }}>
-        <Tabs
-          value={tabIndex}
-          onChange={handleTabChange}
-          centered
-          textColor="primary"
-          indicatorColor="primary"
-        >
-          <Tab label="Sản phẩm" />
-          <Tab label="Đánh giá" />
-        </Tabs>
-      </Box>
-
-      {/* Tab Content */}
-      <Box sx={{ px: { xs: 2, md: 3 }, mt: 3 }}>
-        {tabIndex === 0 && (
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-            {mockProducts.map((p) => (
-              <Card
-                key={p.id}
+          {/* 2. Nút Hành Động */}
+          <Box sx={{ display: "flex", gap: 2, justifyContent: 'flex-start' }}>
+            {/* Nút Xem Sản phẩm */}
+            <Button 
+                variant="contained" 
+                color="primary" 
+                size="large"
+                startIcon={<StorefrontIcon />}
+                onClick={handleViewProducts}
+                disabled={!viewedUserId}
                 sx={{
-                  flex: "1 1 calc(25% - 16px)",
-                  textAlign: "center",
-                  p: 1,
-                  backgroundColor: "#fff",
+                    fontWeight: 600,
+                    borderRadius: 8,
+                    minWidth: 180,
                 }}
-              >
-                <Box
-                  component="img"
-                  src={p.image}
-                  alt={p.name}
-                  sx={{ width: "100%", height: 150, objectFit: "cover" }}
-                />
-                <Typography variant="subtitle1">{p.name}</Typography>
-                <Typography color="primary">{p.price}</Typography>
-              </Card>
-            ))}
+            >
+              Xem Sản phẩm
+            </Button>
+            
+            {/* Nút Xem Đánh giá */}
+            <Button 
+                variant="outlined" 
+                color="warning" 
+                size="large"
+                startIcon={<StarRateIcon />}
+                onClick={handleViewRates}
+                disabled={!viewedUserId}
+                sx={{
+                    fontWeight: 600,
+                    borderRadius: 8,
+                    minWidth: 180,
+                }}
+            >
+              Xem Đánh giá
+            </Button>
           </Box>
-        )}
-
-        {tabIndex === 1 && (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {mockReviews.map((r) => (
-              <Card key={r.id} sx={{ backgroundColor: "#fff" }}>
-                <CardContent>
-                  <Typography fontWeight="bold">{r.reviewer}</Typography>
-                  <Rating value={r.rating} readOnly size="small" />
-                  <Typography>{r.comment}</Typography>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        )}
-      </Box>
+        </Box>
+        
+        <Divider />
+        
+        {/* 3. Khu vực Nội dung (Tạm thời là placeholder) */}
+        <Box sx={{ p: 4 }}>
+             <Typography variant="h6" color="text.secondary" gutterBottom>
+               Thông tin Chi tiết & Thống kê
+             </Typography>
+             <Box sx={{ p: 3, border: '1px dashed #ccc', borderRadius: 1, backgroundColor: '#f9f9f9' }}>
+                 <Typography variant="body1" color="text.disabled">
+                    
+                 </Typography>
+             </Box>
+        </Box>
+        
+      </Paper>
     </Box>
   );
 };

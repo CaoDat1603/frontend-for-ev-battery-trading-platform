@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react"; // Thêm useMemo
 
 import {
     Popover, Box, Typography, Button, Divider,
@@ -6,20 +6,16 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useNavigate } from "react-router-dom";
-import { useUser } from "../../context/UserContext";
+import { useUser } from "../../context/UserContext"; // Đảm bảo UserContext chứa userId
 
 
 // --- ICONS TIỆN ÍCH ---
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder'; // Tin đăng đã lưu
-import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';   // Tìm kiếm đã lưu
-import HistoryIcon from '@mui/icons-material/History';                 // Lịch sử xem tin
-import StarBorderIcon from '@mui/icons-material/StarBorder';           // Đánh giá từ tôi
-
-// --- ICONS KHÁC ---
-import SettingsIcon from '@mui/icons-material/Settings';               // Cài đặt tài khoản
-import HeadsetIcon from '@mui/icons-material/Headset';                 // Trợ giúp
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'; // Đóng góp ý kiến
-import LogoutIcon from '@mui/icons-material/Logout';                   // Đăng xuất
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import HistoryIcon from '@mui/icons-material/History';
+import SettingsIcon from '@mui/icons-material/Settings';
+import HeadsetIcon from '@mui/icons-material/Headset';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 interface AccountMenuPopoverProps {
     open: boolean;
@@ -31,23 +27,14 @@ interface AccountMenuPopoverProps {
 interface MenuLink {
     text: string;
     icon: React.ElementType;
-    path: string; // Thêm trường path
+    path: string; 
 }
 
-// --- Dữ liệu Menu Đã Cập Nhật ---
+// --- Dữ liệu Menu Cố định ---
 
 const utilityLinks: MenuLink[] = [
     { text: 'Tin đăng đã lưu', icon: FavoriteBorderIcon, path: '/manage-wishlists' },
     { text: 'Lịch sử xem tin', icon: HistoryIcon, path: '/my-purchases' },
-    // { text: 'Tìm kiếm đã lưu', icon: BookmarkBorderIcon, path: '/account/saved-search' },
-    //{ text: 'Đánh giá từ tôi', icon: StarBorderIcon, path: '/account/my-reviews' },
-];
-
-const otherLinks: MenuLink[] = [
-    { text: 'Cài đặt tài khoản', icon: SettingsIcon, path: '/account/profile' },
-    // { text: 'Trợ giúp', icon: HeadsetIcon, path: '/help' },
-    { text: 'Phàn nàn của tôi', icon: ChatBubbleOutlineIcon, path: '/user-complaints' },
-    // Đăng xuất là mục đặc biệt
 ];
 
 
@@ -56,12 +43,14 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
 }) => {
     const theme = useTheme();
     const navigate = useNavigate();
-    const { user, setUser, loading } = useUser();
+    const { user, setUser, loading } = useUser(); // user object phải chứa userId
 
     const isLoggedIn = !!user;
 
     const handleLogout = () => {
         localStorage.removeItem("accessToken");
+        // Đảm bảo xóa userId nếu bạn có lưu nó ở đây
+        // localStorage.removeItem("userId"); 
         setUser(null);
         handleClose();
         navigate("/");
@@ -72,6 +61,26 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
         handleClose();
         navigate(path);
     };
+
+    // --- CẬP NHẬT: Tạo Mảng otherLinks Động ---
+    // Sử dụng useMemo để tính toán lại các liên kết chỉ khi user.userId thay đổi
+    const dynamicOtherLinks: MenuLink[] = useMemo(() => {
+        // Lấy userId từ object user. Giả định user object có trường 'userId'
+        const currentUserId = user?.userId; 
+        
+        return [
+            { text: 'Cài đặt tài khoản', icon: SettingsIcon, path: '/account/profile' },
+            // THAY ĐỔI LỚN TẠI ĐÂY: Dùng currentUserId để tạo path động
+            { 
+                text: 'Đánh giá', 
+                icon: HeadsetIcon, 
+                // Nếu có userId, dùng userId đó. Nếu không (ví dụ: đang load), dùng placeholder
+                path: currentUserId ? `/view-rates?userId=${currentUserId}` : '/view-rates?userId=0' 
+            },
+            { text: 'Phàn nàn của tôi', icon: ChatBubbleOutlineIcon, path: '/user-complaints' },
+        ];
+    }, [user?.userId]);
+
 
     // --- RENDER TRẠNG THÁI CHƯA ĐĂNG NHẬP (image_0a9a27.png) ---
     const renderLoggedOutState = () => (
@@ -96,7 +105,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                 </Button>
                 <Button
                     variant="contained"
-                    color="primary" // Sửa color về primary nếu color="ecycle" không tồn tại
+                    color="primary"
                     fullWidth
                     sx={{ py: 1.2, fontWeight: 'bold' }}
                     onClick={() => { handleClose(); navigate("/login"); }}
@@ -166,7 +175,6 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                         {utilityLinks.map((item) => (
                             <ListItem 
                                 key={item.text} 
-                                // GỌI HÀM CHUYỂN HƯỚNG VỚI PATH
                                 onClick={() => handleNavigation(item.path)} 
                                 sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
                             >
@@ -178,15 +186,14 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
 
                     <Divider sx={{ my: 1 }} />
 
-                    {/* 3. KHÁC */}
+                    {/* 3. KHÁC (DÙNG dynamicOtherLinks) */}
                     <List dense sx={{ pt: 0 }}>
                         <Typography variant="subtitle2" color="text.secondary" sx={{ ml: 2, mb: 0.5 }}>
                             Khác
                         </Typography>
-                        {otherLinks.map((item) => (
+                        {dynamicOtherLinks.map((item) => (
                             <ListItem 
                                 key={item.text}
-                                // GỌI HÀM CHUYỂN HƯỚNG VỚI PATH
                                 onClick={() => handleNavigation(item.path)} 
                                 sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
                             >
@@ -210,7 +217,6 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                     </List>
                 </Box>
             ) : (
-                // Nếu Chưa đăng nhập, hiển thị giao diện Đăng nhập/Tạo tài khoản
                 renderLoggedOutState()
             )}
         </Popover>

@@ -11,6 +11,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StorefrontIcon from '@mui/icons-material/Storefront'; 
 import GavelIcon from '@mui/icons-material/Gavel'; 
 import VerifiedIcon from '@mui/icons-material/Verified';
+import PersonIcon from '@mui/icons-material/Person'; // ✅ ICON MỚI: Người bán
 import { useTheme } from '@mui/material/styles';
 
 // ✅ Import Wishlist Context
@@ -18,10 +19,8 @@ import { useWishlist } from '../context/WishlistContext';
 import { type ProductData } from '../services/productService'; // Import ProductData nếu cần
 
 // ✅ IMPORT DỊCH VỤ ĐẤU GIÁ VÀ KIỂU DỮ LIỆU
-// Giả định AuctionDetailData và searchAuction nằm trong file này hoặc file auctionService
 import { searchAuction, type AuctionDetailData } from '../services/auctionService'; 
-// Giả định AuctionStatus được định nghĩa
-type AuctionStatus = 0 | 1 | 2 | 3 | 4; // Ví dụ: 0=Pending, 1=Active, 2=Completed, 3=Cancelled, 4=Expired
+type AuctionStatus = 0 | 1 | 2 | 3 | 4; 
 
 
 // --- Kiểu dữ liệu cho Tin đăng ---
@@ -74,7 +73,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const theme = useTheme();
     const navigate = useNavigate();
 
-    // ✅ SỬA: Lấy 'savedPosts' và 'toggleWishlistItem' từ Context
+    // ✅ Lấy 'savedPosts' và 'toggleWishlistItem' từ Context
     const { savedPosts, toggleWishlistItem } = useWishlist(); 
 
     // ✅ Logic kiểm tra: sử dụng 'savedPosts' và 'post.productId'
@@ -84,52 +83,46 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const displayTimeAgo = useMemo(() => timeAgo(post.createdAt), [post.createdAt]);
     const isAuction = post.saleMethod === 1;
 
+    // --- CÁC HÀM XỬ LÝ CHUYỂN TRANG ---
+
     const handleCardClick = () => {
         navigate(`/content/${post.productId}`);
     };
     
-    // ✅ Cập nhật hàm thêm/xóa khỏi mục yêu thích (Wishlist)
     const handleToggleFavorite = (e: React.MouseEvent) => {
         e.stopPropagation(); 
         
-        // Truyền productId cho hàm toggle
         const itemToToggle = { productId: post.productId };
-
         toggleWishlistItem(itemToToggle);
     };
 
     const handleBuyNow = (e: React.MouseEvent) => {
         e.stopPropagation(); 
-        // Nếu là mua ngay: chuyển sang màn hình chi tiết hóa đơn
-            navigate(`/invoice-detail/${post.productId}`, {
-                state: {
-                    productId: post.productId,
-                    title: post.title,
-                    productName: post.productName,
-                    price: post.price,
-                    sellerId: post.sellerId,
-                    productType: post.productType,
-                },
-            });
+        navigate(`/invoice-detail/${post.productId}`, {
+            state: {
+                productId: post.productId,
+                title: post.title,
+                productName: post.productName,
+                price: post.price,
+                sellerId: post.sellerId,
+                productType: post.productType,
+            },
+        });
     };
 
-    // ✅ CẬP NHẬT HÀM XỬ LÝ ĐẤU GIÁ (ASYNC)
+    // ✅ HÀM XỬ LÝ NHẤP VÀO SELLER ID
+    const handleSellerClick = (e: React.MouseEvent) => {
+        e.stopPropagation(); 
+        // Điều hướng đến trang tìm kiếm và truyền sellerId vào query params
+        navigate(`/view-user/${post.sellerId}`);
+    };
+
+    // ✅ HÀM XỬ LÝ ĐẤU GIÁ (ASYNC)
     const handleBid = async (e: React.MouseEvent) => {
         e.stopPropagation();
         
         try {
-            // ✅ BƯỚC 1: Gọi hàm searchAuction với productId
-            // Giả định chúng ta chỉ quan tâm đến các phiên đấu giá đang Active (1) hoặc Pending (0)
-            const activeStatuses: AuctionStatus[] = [0, 1]; // 0: Pending, 1: Active
-            
-            // Dù hàm searchAuction chỉ có 1 trường status (không phải statuses), 
-            // chúng ta sẽ chỉ tìm kiếm các phiên có trạng thái "Active" (1)
-            // hoặc phải dựa vào cách API hỗ trợ lọc mảng. 
-            // Dựa trên hàm bạn cung cấp (chỉ có 1 tham số 'status'), chúng ta sẽ 
-            // tìm kiếm các phiên Đấu giá BẤT KỲ của Product đó (status=null)
-            // hoặc chỉ tìm phiên Active (1) để đơn giản hóa. 
-            
-            // Tạm thời bỏ qua filter status để tìm TẤT CẢ các phiên đấu giá cho sản phẩm này.
+            // Gọi hàm searchAuction với productId để tìm phiên đấu giá
             const searchResults: AuctionDetailData[] = await searchAuction(
                 // Chỉ truyền productId, các tham số khác để null
                 null, null, null, null, null, null, null, null, null, null, null, null, 
@@ -138,37 +131,29 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             );
 
             if (searchResults && searchResults.length > 0) {
-                // ✅ BƯỚC 2A: Tìm thấy Auction đang hoạt động/chờ duyệt
+                // Tìm thấy Auction đang hoạt động/chờ duyệt
                 const existingAuction = searchResults[0]; 
-                
-                // Sử dụng trường 'transactionId' (giả định là auctionId) 
-                // hoặc tìm một trường phù hợp, ví dụ: 'auctionId' (nếu có)
-                const auctionId = existingAuction.auctionId; // Hoặc existingAuction.auctionId
+                const auctionId = existingAuction.auctionId; 
                 
                 if (auctionId) {
                     console.log(`Tìm thấy Auction ID: ${auctionId}. Chuyển đến trang chi tiết.`);
-                    // Điều hướng đến trang chi tiết đấu giá
                     navigate(`/detail-auction/${auctionId}/${post.sellerId}`);
                 } else {
-                     // Nếu tìm thấy nhưng không có ID đấu giá hợp lệ (xảy ra lỗi data)
                     throw new Error("Dữ liệu đấu giá không hợp lệ (Missing Auction ID).");
                 }
             } else {
-                // ✅ BƯỚC 2B: Không tìm thấy Auction
+                // Không tìm thấy Auction: Điều hướng đến trang tạo đấu giá mới
                 console.log("Không tìm thấy Auction. Chuyển đến trang tạo mới.");
-                
-                // Điều hướng đến trang tạo đấu giá mới
                 navigate(`/create-auction/${post.productId}/${post.sellerId}`);
             }
 
         } catch (error) {
             console.error("Lỗi khi tìm kiếm hoặc điều hướng đấu giá:", error);
-            // Có thể hiển thị thông báo lỗi cho người dùng
             alert("Lỗi kiểm tra trạng thái đấu giá. Vui lòng thử lại.");
         }
     };
-    // HẾT CẬP NHẬT handleBid
 
+    // --- PHẦN JSX (HIỂN THỊ) ---
     return (
         <Card 
             sx={{ 
@@ -195,7 +180,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     sx={{ objectFit: 'cover' }}
                 />
 
-                {/* Tag thời gian & Kiểm định (Giữ nguyên) */}
+                {/* Tag thời gian & Kiểm định */}
                 <Chip 
                     icon={<AccessTimeIcon sx={{ fontSize: '12px !important' }} />}
                     label={displayTimeAgo}
@@ -225,7 +210,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     />
                 )}
 
-                {/* ✅ KHỐI ICON FAVORITE ĐÃ CẬP NHẬT */}
+                {/* KHỐI ICON FAVORITE ĐÃ CẬP NHẬT */}
                 <IconButton
                     size="small"
                     onClick={handleToggleFavorite}
@@ -236,10 +221,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     }}
                 >
                     {isSaved ? (
-                        // Đã lưu: Icon đặc ruột màu đỏ
                         <FavoriteIcon sx={{ color: 'red', fontSize: 20 }} />
                     ) : (
-                        // Chưa lưu: Icon trái tim rỗng màu xám
                         <FavoriteBorderIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
                     )}
                 </IconButton>
@@ -293,6 +276,26 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     </Typography>
                 </Box>
 
+                {/* KHỐI THÔNG TIN NGƯỜI BÁN CÓ THỂ NHẤP VÀO */}
+                <Box 
+                    sx={{ 
+                        display: 'flex', alignItems: 'center', mb: 1,
+                        cursor: 'pointer', 
+                        '&:hover .MuiTypography-root': { textDecoration: 'underline', color: theme.palette.primary.main }
+                    }}
+                    onClick={handleSellerClick} 
+                >
+                    <PersonIcon sx={{ fontSize: 16, mr: 0.5, color: theme.palette.info.main }} />
+                    <Typography 
+                        variant="caption" 
+                        fontWeight="medium"
+                        color="text.primary"
+                        sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    >
+                        Tác giả: **ID {post.sellerId}**
+                    </Typography>
+                </Box>
+
                 {/* KHỐI BUTTON */}
                 <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                     {post.saleMethod === 0 && (
@@ -314,7 +317,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         <Button 
                             variant="outlined" size="small" fullWidth 
                             startIcon={<GavelIcon />}
-                            // ✅ GỌI HÀM ASYNC ĐÃ CẬP NHẬT
                             onClick={handleBid} 
                             sx={{ 
                                 textTransform: 'uppercase', fontWeight: 'bold', fontSize: 12,
