@@ -11,6 +11,8 @@ import TransactionManagementPage from './pages/TransactionManagementPage';
 import ComplaintHandlingPage from './pages/ComplaintManagementPage';
 import FeeCommissionManagementPage from './pages/FeeCommissionManagementPage';
 import GeneralSettingsPage from './pages/GeneralSettingsPage';
+import AuctionManagementPage from './pages/AuctionManagementPage';
+import AuctionDetailPage from './pages/AuctionDetailPage'
 
 import UserDetailPage from './pages/UserDetailPage';
 import PostDetailPage from './pages/PostDetailPage';
@@ -46,6 +48,8 @@ const App: React.FC = () => {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="help" element={<HelpPage />} />
         <Route path="feedback" element={<FeedbackPage />} />
+                <Route path="auctions" element={<AuctionManagementPage />} />
+        <Route path="auction-detail/:auctionId" element={<AuctionDetailPage />} />
         <Route path="*" element={<h1>404 Not Found</h1>} />
       </Route>
 

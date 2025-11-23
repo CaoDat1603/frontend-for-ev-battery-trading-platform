@@ -319,6 +319,9 @@ export const SearchPostPage: React.FC<EcycleCategoryPageProps> = ({ globalSearch
     // Hàm ánh xạ dữ liệu ProductData từ API sang PostData cho PostCard
     const mapProductToPostData = (product: ProductData): PostData => ({
         productId: product.productId,
+        sellerId: product.sellerId,
+        productName: product.productName,
+        productType: product.productType,
         title: product.title,
         price: product.price || 0, 
         pickupAddress: product.pickupAddress,

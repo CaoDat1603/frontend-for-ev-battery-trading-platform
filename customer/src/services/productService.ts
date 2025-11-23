@@ -76,6 +76,10 @@ interface UpdateSaleMeThodRequest {
     newMethod: SaleMethod;
 }
 
+interface VerifiedTransactionRequest {
+    transactionId: number;
+}
+
 // --- CONFIG & API URLs ---
 const BASE_URL = 'http://localhost:8000/'; // <-- URL CƠ SỞ ĐÃ ĐỊNH NGHĨA
 const PRODUCT_API_URL = `${BASE_URL}/api/products`; 
@@ -515,7 +519,32 @@ export async function getProductById(
     }
 }
 
+export async function getIsMeProductById(
+    productId: number
+): Promise<boolean> {
+    const url = `${PRODUCT_API_URL}/is-me/${productId}`; 
 
+    try {
+        const headers = getAuthHeaders();
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers, 
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to fetch product by ID. Status: ${response.status}. Error: ${errorText}`);
+        }
+        
+        // API trả về boolean, nên parse trực tiếp
+        const result: boolean = await response.json();
+        return result;
+
+    } catch (error) {
+        console.error("Error in getIsMeProductById:", error);
+        throw new Error(`Could not connect to the product API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
 
 /**
  * Hủy gắn nhãn đã kiểm định (Unverify) sản phẩm.
@@ -729,6 +758,44 @@ export async function updateSaleMethodApi(
         console.error('Error in updateProductSaleMethodApi:', error);
         throw new Error(
             `Network or processing error when updating product sale method: ${
+                error instanceof Error ? error.message : 'Unknown error'
+            }`
+        );
+    }
+}
+
+export async function verifiedTransactionApi(
+    productId: number,
+    transactionId: number
+): Promise<{ message: string }> {
+    const requestBody: VerifiedTransactionRequest = { transactionId };
+    const updateUrl = `${PRODUCT_API_URL}/${productId}/verify-transaction`;
+    try {
+        const headers = getAuthHeaders();
+
+        console.log(`${updateUrl}`);
+        const response = await fetch(updateUrl, {
+            method: 'PATCH',
+            headers: headers,
+            body: JSON.stringify(requestBody),
+        });
+
+        // ✅ Kiểm tra phản hồi và xử lý hợp lệ
+        if (response.ok) {
+            const result = await response.json();
+            return {
+                message: result.message || 'Product verify transaction successfully.',
+            };
+        } else {
+            const errorText = await response.text();
+            throw new Error(
+                `Failed to update product verify transaction. Sale method: Response: ${errorText}`
+            );
+        }
+    } catch (error) {
+        console.error('Error in verifiedTransactionApi:', error);
+        throw new Error(
+            `Network or processing error when updating product verify transaction: ${
                 error instanceof Error ? error.message : 'Unknown error'
             }`
         );

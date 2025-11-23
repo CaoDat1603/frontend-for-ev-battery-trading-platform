@@ -15,6 +15,7 @@ npm install @mui/icons-material
 npm install react-router-dom
 npm install --save-dev @types/react @types/react-dom @types/node
 npm install notistack
+npm install axios
 ```
 
 ### 2. Run the Project

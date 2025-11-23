@@ -23,10 +23,16 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { OrderService, type Transaction } from "../services/orderService";
-import {
-  PaymentService,
-  type Payment,
-} from "../services/paymentService";
+import { PaymentService, type Payment } from "../services/paymentService";
+
+// --- IMPORT TỪ SERVICE FILE (Product Service) ---
+import { verifiedTransactionApi } from "../services/productService";
+
+interface PaymentContext {
+  returnUrl: string;
+  actionType: "AUCTION_PAYMENT" | string; // Các loại thanh toán tùy chỉnh
+  transactionId: number;
+}
 
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat("vi-VN", {
@@ -48,23 +54,27 @@ const PaymentResultPage: React.FC = () => {
   const [transactionId, setTransactionId] = useState<number | null>(null);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
 
-  // VNPay raw status (nếu có)
+  // VNPay raw status
   const [vnpResponseCode, setVnpResponseCode] = useState<string | null>(null);
   const [vnpTransactionStatus, setVnpTransactionStatus] =
     useState<string | null>(null);
 
+  // State để tránh gọi API verify/context nhiều lần
+  const [hasVerified, setHasVerified] = useState(false);
+  const [customReturnUrl, setCustomReturnUrl] = useState<string | null>(null); // MỚI
+
   // 1. Parse query string lấy transactionId + mã phản hồi VNPAY
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
-
     let txIdStr = searchParams.get("transactionId");
 
-    // Fallback: nếu bạn encode transactionId vào vnp_OrderInfo dạng "...#123"
+    // Fallback logic
     if (!txIdStr) {
       const orderInfo = searchParams.get("vnp_OrderInfo");
       if (orderInfo) {
@@ -76,9 +86,7 @@ const PaymentResultPage: React.FC = () => {
     }
 
     if (!txIdStr) {
-      setError(
-        "Không tìm thấy mã giao dịch (transactionId) trong URL. Vui lòng kiểm tra cấu hình vnp_ReturnUrl."
-      );
+      setError("Không tìm thấy mã giao dịch (transactionId) trong URL.");
       setLoading(false);
       setPaymentLoading(false);
       return;
@@ -86,9 +94,7 @@ const PaymentResultPage: React.FC = () => {
 
     const parsedId = Number(txIdStr);
     if (!parsedId || Number.isNaN(parsedId)) {
-      setError(
-        `Mã giao dịch không hợp lệ: ${txIdStr}.`
-      );
+      setError(`Mã giao dịch không hợp lệ: ${txIdStr}.`);
       setLoading(false);
       setPaymentLoading(false);
       return;
@@ -99,11 +105,10 @@ const PaymentResultPage: React.FC = () => {
     setVnpTransactionStatus(searchParams.get("vnp_TransactionStatus"));
   }, [location.search]);
 
-  // 2. Gọi OrderService lấy chi tiết transaction
+  // 2. Gọi OrderService lấy chi tiết transaction (Để có productId)
   useEffect(() => {
     const loadTransaction = async () => {
       if (!transactionId) return;
-
       try {
         setLoading(true);
         setError(null);
@@ -111,40 +116,34 @@ const PaymentResultPage: React.FC = () => {
         setTransaction(tx);
       } catch (err) {
         console.error("Failed to load transaction detail:", err);
-        const msg =
-          err instanceof Error
-            ? err.message
-            : "Không thể tải chi tiết giao dịch từ máy chủ.";
-        setError(msg);
+        setError(err instanceof Error ? err.message : "Lỗi tải giao dịch.");
       } finally {
         setLoading(false);
       }
     };
-
     void loadTransaction();
   }, [transactionId]);
 
-  // 3. Gọi PaymentService để lấy lịch sử thanh toán cho giao dịch
+  // 3. Gọi PaymentService để lấy lịch sử thanh toán
   useEffect(() => {
     const loadPayments = async () => {
       if (!transactionId) return;
-
       try {
         setPaymentLoading(true);
-        const list = await PaymentService.getPaymentsByTransaction(transactionId);
+        const list = await PaymentService.getPaymentsByTransaction(
+          transactionId
+        );
         setPayments(list);
       } catch (err) {
         console.error("Failed to load payments:", err);
-        // Không cần setError chung – chỉ show trong phần lịch sử thanh toán
       } finally {
         setPaymentLoading(false);
       }
     };
-
     void loadPayments();
   }, [transactionId]);
 
-  // 4. Tính trạng thái hiển thị tổng quan
+  // 5. Tính trạng thái hiển thị tổng quan
   const isVnpSuccess =
     vnpResponseCode === "00" &&
     (!vnpTransactionStatus || vnpTransactionStatus === "00");
@@ -155,6 +154,77 @@ const PaymentResultPage: React.FC = () => {
     isVnpSuccess ||
     (transactionStatusLabel.toLowerCase() === "processing" ||
       transactionStatusLabel.toLowerCase() === "completed");
+
+  // ============================================================
+  // 4. (NEW) Gọi verifiedTransactionApi để cập nhật trạng thái Product
+  // ============================================================
+  useEffect(() => {
+    const verifyProductTransaction = async () => {
+      // Chỉ gọi khi: Thành công VNPAY và chưa gọi lần nào
+      if (
+        transaction &&
+        transactionId &&
+        vnpResponseCode === "00" &&
+        !hasVerified
+      ) {
+        try {
+          setHasVerified(true); // Đánh dấu là đang/đã xử lý
+          console.log(
+            `Verifying product #${transaction.productId} for transaction #${transactionId}...`
+          );
+
+          await verifiedTransactionApi(transaction.productId, transactionId);
+
+          console.log("Product verify transaction successfully.");
+        } catch (err) {
+          console.error("Failed to verify product transaction:", err);
+        }
+      }
+    };
+
+    verifyProductTransaction();
+  }, [transaction, transactionId, vnpResponseCode, hasVerified]);
+
+  // ============================================================
+  // 6. Xử lý Context Quay lại cho đấu giá (MỚI)
+  // ============================================================
+  useEffect(() => {
+    // Chỉ xử lý khi giao dịch được coi là thành công và đã có ID
+    if (overallSuccess && transactionId) {
+      const contextStr = sessionStorage.getItem("payment_context");
+
+      if (contextStr) {
+        try {
+          const context: PaymentContext = JSON.parse(contextStr);
+
+          // 1. Kiểm tra phải là loại AUCTION_PAYMENT VÀ transactionId phải khớp
+          if (
+            context.actionType === "AUCTION_PAYMENT" &&
+            context.transactionId === transactionId
+          ) {
+            let finalUrl = context.returnUrl;
+
+            // 2. Thêm transactionId vào query string (để trang đích biết mà xử lý)
+            if (!finalUrl.includes("transactionId")) {
+              const separator = finalUrl.includes("?") ? "&" : "?";
+              finalUrl += `${separator}transactionId=${transactionId}`;
+            }
+
+            setCustomReturnUrl(finalUrl);
+
+            // 3. Xóa context sau khi sử dụng thành công
+            sessionStorage.removeItem("payment_context");
+            console.log(
+              "Custom payment context for AUCTION_PAYMENT loaded and removed."
+            );
+          }
+        } catch (e) {
+          console.error("Error parsing payment context:", e);
+          sessionStorage.removeItem("payment_context"); // Xóa context lỗi
+        }
+      }
+    }
+  }, [overallSuccess, transactionId]);
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
@@ -246,13 +316,7 @@ const PaymentResultPage: React.FC = () => {
           <Divider sx={{ mb: 2 }} />
 
           {loading ? (
-            <Box
-              sx={{
-                py: 3,
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
+            <Box sx={{ py: 3, display: "flex", justifyContent: "center" }}>
               <CircularProgress size={24} />
             </Box>
           ) : transaction ? (
@@ -274,7 +338,6 @@ const PaymentResultPage: React.FC = () => {
                   #{transaction.productId} (Type: {transaction.productType})
                 </Typography>
               </Stack>
-
               <Stack direction="row" justifyContent="space-between">
                 <Typography variant="body2" color="text.secondary">
                   Người bán / Người mua
@@ -312,37 +375,6 @@ const PaymentResultPage: React.FC = () => {
                   {formatCurrency(transaction.sellerAmount)}
                 </Typography>
               </Stack>
-
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">
-                  Phí nền tảng (commission + service)
-                </Typography>
-                <Typography variant="body2" fontWeight="bold">
-                  {formatCurrency(transaction.platformAmount)}
-                </Typography>
-              </Stack>
-
-              <Divider sx={{ my: 1 }} />
-
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">
-                  Thời gian tạo
-                </Typography>
-                <Typography variant="body2" fontWeight="bold">
-                  {formatDateTime(transaction.createdAt)}
-                </Typography>
-              </Stack>
-
-              {transaction.updatedAt && (
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="body2" color="text.secondary">
-                    Cập nhật cuối
-                  </Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {formatDateTime(transaction.updatedAt)}
-                  </Typography>
-                </Stack>
-              )}
             </Stack>
           ) : (
             <Typography variant="body2">
@@ -359,13 +391,7 @@ const PaymentResultPage: React.FC = () => {
           <Divider sx={{ mb: 2 }} />
 
           {paymentLoading ? (
-            <Box
-              sx={{
-                py: 3,
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
+            <Box sx={{ py: 3, display: "flex", justifyContent: "center" }}>
               <CircularProgress size={24} />
             </Box>
           ) : payments.length === 0 ? (
@@ -426,20 +452,33 @@ const PaymentResultPage: React.FC = () => {
         </Paper>
       </Stack>
 
-      {/* Nút điều hướng dưới cùng */}
+      {/* Nút điều hướng dưới cùng (ĐÃ CẬP NHẬT) */}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         justifyContent="space-between"
         spacing={1.5}
         sx={{ mt: 3 }}
       >
-        <Button
-          variant="outlined"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate("/")}
-        >
-          Về trang chủ
-        </Button>
+        {/* Nút ưu tiên: Nút quay về theo ngữ cảnh (Đấu giá) */}
+        {customReturnUrl ? (
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(customReturnUrl)}
+          >
+            Quay lại trang Đấu giá (Mã: #{transactionId})
+          </Button>
+        ) : (
+          /* Nút mặc định: Về trang chủ */
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate("/")}
+          >
+            Về trang chủ
+          </Button>
+        )}
+
         <Button
           variant="contained"
           onClick={() => navigate("/profile/purchases")}

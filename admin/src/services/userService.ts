@@ -22,6 +22,22 @@ export const UserService = {
         }
     },
 
+    getUserById: async (userId: number) => {
+        try {
+            console.log(`${API_BASE_URL}/guest/${userId}`)
+            const res = await axios.get(`${API_BASE_URL}/guest/${userId}`, {
+                withCredentials: true,
+            });
+            console.log(`Hi`)
+            console.log(JSON.stringify(res.data, null, 2));
+            return res.data;
+            
+        } catch (err: any) {
+            const msg = err.response?.data?.message || "Không thể lấy thông tin người dùng này";
+            console.log(`ViewUser: ${msg}`)
+            throw new Error(msg);
+        }
+    },
 
     updateProfile: async (formData: FormData) => {
         try {

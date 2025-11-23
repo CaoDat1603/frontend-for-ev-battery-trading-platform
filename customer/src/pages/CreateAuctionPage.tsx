@@ -3,8 +3,9 @@ import {
     Box, Typography, Paper, useTheme, Stack, 
     Chip, Button, Alert, 
     CircularProgress, TextField,
+    Step, Stepper, StepLabel, StepContent
 } from '@mui/material';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 
 // ICONS
 import GavelIcon from '@mui/icons-material/Gavel';
@@ -14,6 +15,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import HistoryIcon from '@mui/icons-material/History';
 import HomeIcon from '@mui/icons-material/Home';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'; 
+import PaymentIcon from '@mui/icons-material/Payment';
 
 // --- IMPORTS THỰC TẾ ---
 import { type ProductData, getProductById } from '../services/productService'; 
@@ -80,15 +82,17 @@ const getInitialData = (productId: number, product: ProductData | null): Auction
         createdAt: new Date().toISOString(),
         sellerEmail: product?.author || null, 
         sellerPhone: null, 
-        bids: [],
     } as AuctionDetailData; 
 };
 
 
 // --- COMPONENT CHÍNH ---
 const CreateAuctionPage: React.FC = () => {
-    const { productId } = useParams<{ productId: string }>(); 
+    const { productId, sellerId } = useParams<{ productId: string; sellerId: string }>(); 
     const theme = useTheme();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const [searchParams] = useSearchParams();
     
     // GIẢ ĐỊNH DỮ LIỆU
     const DUMMY_SELLER_EMAIL = 'seller@example.com'; 
@@ -96,6 +100,8 @@ const CreateAuctionPage: React.FC = () => {
     const DUMMY_BIDDER_ID = 100; // ID người dùng hiện tại
 
     const idNumber = useMemo(() => parseInt(productId || '0'), [productId]); 
+
+    const sellerIdFromUrl = useMemo(() => parseInt(sellerId || '0'), [sellerId]); 
 
     const [productDetail, setProductDetail] = useState<ProductData | null>(null);
     const [isFetchingProduct, setIsFetchingProduct] = useState(true);
@@ -107,6 +113,37 @@ const CreateAuctionPage: React.FC = () => {
     const minInputBid = auction ? auction.startingPrice : 0;
     const [currentBidAmount, setCurrentBidAmount] = useState<number>(minInputBid);
     
+    // --- [NEW] STATE QUẢN LÝ THANH TOÁN CỌC ---
+    const [paymentTransactionId, setPaymentTransactionId] = useState<number | null>(null);
+
+    // --- [NEW] EFFECT KIỂM TRA THANH TOÁN TỪ URL ---
+    useEffect(() => {
+        //const status = searchParams.get("paymentStatus");
+        const txIdParam = searchParams.get("transactionId");
+
+        setPaymentTransactionId(Number(txIdParam));
+    }, [searchParams]);
+
+    // --- [NEW] HÀM CHUYỂN HƯỚNG SANG TRANG THANH TOÁN (INVOICE) ---
+    const handleGoToDeposit = () => {
+        if (!auction) return;
+
+        // Lấy URL hiện tại để trang Invoice biết đường quay lại
+        const currentPath = window.location.pathname + window.location.search;
+
+        navigate(`/invoice-detail/${idNumber}`, {
+            state: {
+                productId: auction.productId,
+                title: `Đặt cọc phiên đấu giá: ${auction.productTitle}`,
+                productName: auction.productTitle,
+                price: auction.depositAmount, // Số tiền cần thanh toán là tiền cọc
+                sellerId: sellerIdFromUrl, // Hoặc ID hệ thống nhận cọc
+                productType: 3, // [QUAN TRỌNG] Type 4: Phí/Cọc đấu giá
+                
+                returnUrl: currentPath // Truyền link để quay về
+            }
+        });
+    };
     // --- EFFECT LẤY DỮ LIỆU SẢN PHẨM THỰC TẾ (Không đổi) ---
     useEffect(() => {
         if (idNumber > 0) {
@@ -195,7 +232,8 @@ const CreateAuctionPage: React.FC = () => {
                 DUMMY_BIDDER_ID, 
                 String(currentBidAmount), 
                 DUMMY_SELLER_EMAIL, // Giả định người bán cũng là người đặt bid đầu tiên
-                DUMMY_SELLER_PHONE
+                DUMMY_SELLER_PHONE,
+                paymentTransactionId ? paymentTransactionId : undefined
             ); 
 
             // 4. LẤY LẠI DỮ LIỆU CHÍNH XÁC TỪ SERVER 
@@ -330,72 +368,96 @@ const CreateAuctionPage: React.FC = () => {
                     </Paper>
                 </Box>
 
-                {/* --- B. HÀNH ĐỘNG KÍCH HOẠT VÀ ĐẶT GIÁ (RIGHT - STICKY) --- */}
-                <Stack 
-                    spacing={3} 
-                    sx={{ 
-                        width: { xs: '100%', md: '41.67%' }, 
-                        position: 'sticky', 
-                        top: theme.spacing(10), 
-                        alignSelf: 'flex-start' 
-                    }}
-                >
+                {/* --- B. HÀNH ĐỘNG (RIGHT - STICKY) --- */}
+                <Stack spacing={3} sx={{ width: { xs: '100%', md: '41.67%' }, position: 'sticky', top: theme.spacing(10), alignSelf: 'flex-start' }}>
                     <Paper sx={{ p: 3, boxShadow: theme.shadows[5] }}>
-                        <Typography variant="h5" fontWeight="bold" color="primary" sx={{ mb: 2 }}>
-                            Hành động Khởi tạo
+                        <Typography variant="h5" fontWeight="bold" color="primary" sx={{ mb: 3 }}>
+                            Quy trình Kích hoạt
                         </Typography>
 
                         {!isAuctionPending ? (
                             <Alert severity="success">
                                 <Typography fontWeight="bold">Phiên đã Active!</Typography>
-                                <Typography variant="body2">Auction ID: **{auction.auctionId}**. Giá hiện tại: **{formatCurrency(auction.currentPrice)}**</Typography>
-                                <Button 
-                                    component={Link} 
-                                    to={`/auction/${auction.auctionId}`} 
-                                    variant="outlined" 
-                                    sx={{ mt: 1 }}
-                                    startIcon={<GavelIcon />}
-                                >
-                                    Xem Chi Tiết Đấu Giá
+                                <Button component={Link} to={`/auction/${auction.auctionId}`} variant="outlined" sx={{ mt: 1 }}>
+                                    Xem Chi Tiết
                                 </Button>
                             </Alert>
                         ) : (
-                            <Box>
-                                <Alert severity="warning" sx={{ mb: 3 }}>
-                                    <Typography fontWeight="bold">Giá Khởi điểm: <Box component="span" color="error.main">{formatCurrency(auction.startingPrice)}</Box></Typography>
-                                    <Typography variant="body2">Giá đặt tối thiểu phải bằng Giá khởi điểm để kích hoạt đấu giá (Tạo Auction + Chuyển Active + Đặt Bid).</Typography>
-                                </Alert>
+                            /* --- SỬ DỤNG STEPPER ĐỂ HIỂN THỊ QUY TRÌNH 2 BƯỚC --- */
+                            <Stepper orientation="vertical" activeStep={paymentTransactionId ? 1 : 0}>
                                 
-                                <Typography variant="body1" fontWeight="bold" color="error.main">
-                                    Giá Khởi điểm: {formatCurrency(auction.startingPrice)}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                    Giá đặt phải bằng hoặc lớn hơn giá khởi điểm.
-                                </Typography>
-                                
-                                <TextField
-                                    label="Số tiền muốn đặt (VND)"
-                                    fullWidth
-                                    type="number"
-                                    value={currentBidAmount}
-                                    onChange={(e) => setCurrentBidAmount(Math.max(minInputBid, parseInt(e.target.value) || 0))}
-                                    inputProps={{ step: 100000 }} 
-                                    sx={{ mb: 2 }}
-                                />
+                                {/* BƯỚC 1: THANH TOÁN CỌC */}
+                                <Step expanded={true}>
+                                    <StepLabel 
+                                        optional={paymentTransactionId ? <Typography variant="caption" color="success.main">Đã hoàn thành</Typography> : null}
+                                        error={!paymentTransactionId}
+                                    >
+                                        <Typography fontWeight="bold">Bước 1: Đặt cọc phiên đấu giá</Typography>
+                                    </StepLabel>
+                                    <StepContent>
+                                        <Typography variant="body2" sx={{ mb: 2 }}>
+                                            Bạn cần thanh toán khoản cọc <b>{formatCurrency(auction.depositAmount)}</b> để đảm bảo tính xác thực của phiên đấu giá.
+                                        </Typography>
+                                        
+                                        {paymentTransactionId ? (
+                                            <Alert severity="success" icon={<CheckCircleIcon />}>
+                                                Đã thanh toán thành công.<br/>Mã GD: <b>#{paymentTransactionId}</b>
+                                            </Alert>
+                                        ) : (
+                                            <Button 
+                                                variant="contained" 
+                                                color="warning" 
+                                                fullWidth 
+                                                startIcon={<PaymentIcon />}
+                                                onClick={handleGoToDeposit}
+                                            >
+                                                Thanh toán Cọc ngay
+                                            </Button>
+                                        )}
+                                    </StepContent>
+                                </Step>
 
-                                <Button 
-                                    variant="contained" 
-                                    color="success" 
-                                    fullWidth 
-                                    size="large"
-                                    startIcon={loading ? <CircularProgress size={24} color="inherit" /> : <AttachMoneyIcon />}
-                                    onClick={handlePlaceBidAndActivate}
-                                    disabled={loading || currentBidAmount < minInputBid} 
-                                    sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#388e3c' } }}
-                                >
-                                    {loading ? 'ĐANG KÍCH HOẠT...' : `ĐẶT GIÁ VÀ KÍCH HOẠT (${formatCurrency(currentBidAmount)})`}
-                                </Button>
-                            </Box>
+                                {/* BƯỚC 2: KÍCH HOẠT VÀ ĐẶT GIÁ */}
+                                <Step expanded={true}>
+                                    <StepLabel>
+                                        <Typography fontWeight="bold">Bước 2: Đặt giá đầu & Kích hoạt</Typography>
+                                    </StepLabel>
+                                    <StepContent>
+                                        <Typography variant="body2" sx={{ mb: 2 }}>
+                                            Nhập giá bạn muốn đặt (tối thiểu bằng giá khởi điểm) để mở phiên.
+                                        </Typography>
+
+                                        <TextField
+                                            label="Số tiền muốn đặt (VND)"
+                                            fullWidth
+                                            type="number"
+                                            value={currentBidAmount}
+                                            onChange={(e) => setCurrentBidAmount(Math.max(minInputBid, parseInt(e.target.value) || 0))}
+                                            disabled={!paymentTransactionId} // Khóa nếu chưa cọc
+                                            sx={{ mb: 2 }}
+                                        />
+
+                                        <Button 
+                                            variant="contained" 
+                                            color="success" 
+                                            fullWidth 
+                                            size="large"
+                                            startIcon={loading ? <CircularProgress size={24} color="inherit" /> : <AttachMoneyIcon />}
+                                            onClick={handlePlaceBidAndActivate}
+                                            // Khóa nút nếu chưa cọc HOẶC đang loading
+                                            disabled={loading || !paymentTransactionId || currentBidAmount < minInputBid} 
+                                        >
+                                            {loading ? 'ĐANG XỬ LÝ...' : 'KÍCH HOẠT ĐẤU GIÁ'}
+                                        </Button>
+                                        
+                                        {!paymentTransactionId && (
+                                            <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                                                * Vui lòng hoàn thành Bước 1 để mở khóa.
+                                            </Typography>
+                                        )}
+                                    </StepContent>
+                                </Step>
+                            </Stepper>
                         )}
                     </Paper>
                 </Stack>

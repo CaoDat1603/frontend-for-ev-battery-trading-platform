@@ -27,19 +27,26 @@ interface AccountMenuPopoverProps {
     handleClose: () => void;
 }
 
-// --- Dữ liệu Menu ---
+// Thêm Interface cho cấu trúc Link mới
+interface MenuLink {
+    text: string;
+    icon: React.ElementType;
+    path: string; // Thêm trường path
+}
 
-const utilityLinks = [
-    { text: 'Tin đăng đã lưu', icon: FavoriteBorderIcon },
-    { text: 'Tìm kiếm đã lưu', icon: BookmarkBorderIcon },
-    { text: 'Lịch sử xem tin', icon: HistoryIcon },
-    { text: 'Đánh giá từ tôi', icon: StarBorderIcon },
+// --- Dữ liệu Menu Đã Cập Nhật ---
+
+const utilityLinks: MenuLink[] = [
+    { text: 'Tin đăng đã lưu', icon: FavoriteBorderIcon, path: '/manage-wishlists' },
+    { text: 'Lịch sử xem tin', icon: HistoryIcon, path: '/my-purchases' },
+    // { text: 'Tìm kiếm đã lưu', icon: BookmarkBorderIcon, path: '/account/saved-search' },
+    //{ text: 'Đánh giá từ tôi', icon: StarBorderIcon, path: '/account/my-reviews' },
 ];
 
-const otherLinks = [
-    { text: 'Cài đặt tài khoản', icon: SettingsIcon },
-    { text: 'Trợ giúp', icon: HeadsetIcon },
-    { text: 'Đóng góp ý kiến', icon: ChatBubbleOutlineIcon },
+const otherLinks: MenuLink[] = [
+    { text: 'Cài đặt tài khoản', icon: SettingsIcon, path: '/account/profile' },
+    // { text: 'Trợ giúp', icon: HeadsetIcon, path: '/help' },
+    { text: 'Phàn nàn của tôi', icon: ChatBubbleOutlineIcon, path: '/user-complaints' },
     // Đăng xuất là mục đặc biệt
 ];
 
@@ -60,9 +67,10 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
         navigate("/");
     };
     
-    const goToAccountSettings = () => {
+    // Hợp nhất logic chuyển hướng vào hàm handleNavigation
+    const handleNavigation = (path: string) => {
         handleClose();
-        navigate("/account/profile");
+        navigate(path);
     };
 
     // --- RENDER TRẠNG THÁI CHƯA ĐĂNG NHẬP (image_0a9a27.png) ---
@@ -88,7 +96,7 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                 </Button>
                 <Button
                     variant="contained"
-                    color="ecycle"
+                    color="primary" // Sửa color về primary nếu color="ecycle" không tồn tại
                     fullWidth
                     sx={{ py: 1.2, fontWeight: 'bold' }}
                     onClick={() => { handleClose(); navigate("/login"); }}
@@ -107,12 +115,12 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
             onClose={handleClose}
 
             anchorOrigin={{
-                vertical: 'bottom', // Neo từ dưới cùng của nút bấm
-                horizontal: 'right', // Neo từ phía bên phải của nút bấm
+                vertical: 'bottom',
+                horizontal: 'right',
             }}
             transformOrigin={{
-                vertical: 'top', // Bắt đầu Popover từ đỉnh của nó
-                horizontal: 'right', // Căn phải Popover với nút bấm
+                vertical: 'top',
+                horizontal: 'right',
             }}
 
             slotProps={{
@@ -120,11 +128,10 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                     sx: {
                         borderRadius: '8px',
                         mt: 0.5,
-                        // Điều chỉnh minWidth cho trạng thái chưa đăng nhập
                         minWidth: isLoggedIn ? 300 : 320,
                         maxWidth: 350,
                         overflow: 'visible',
-                        py: isLoggedIn ? 2 : 0 // Bỏ padding trên/dưới nếu chưa đăng nhập
+                        py: isLoggedIn ? 2 : 0 
                     },
                 },
             }}
@@ -157,7 +164,12 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                             Tiện ích
                         </Typography>
                         {utilityLinks.map((item) => (
-                            <ListItem key={item.text} onClick={handleClose} sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
+                            <ListItem 
+                                key={item.text} 
+                                // GỌI HÀM CHUYỂN HƯỚNG VỚI PATH
+                                onClick={() => handleNavigation(item.path)} 
+                                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                            >
                                 <ListItemIcon sx={{ minWidth: 40 }}><item.icon /></ListItemIcon>
                                 <ListItemText primary={item.text} />
                             </ListItem>
@@ -174,10 +186,8 @@ export const AccountMenuPopover: React.FC<AccountMenuPopoverProps> = ({
                         {otherLinks.map((item) => (
                             <ListItem 
                                 key={item.text}
-                                onClick={() => {
-                                    if (item.text === "Cài đặt tài khoản") return goToAccountSettings();
-                                    handleClose();
-                                }}
+                                // GỌI HÀM CHUYỂN HƯỚNG VỚI PATH
+                                onClick={() => handleNavigation(item.path)} 
                                 sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
                             >
                                 <ListItemIcon sx={{ minWidth: 40 }}><item.icon /></ListItemIcon>

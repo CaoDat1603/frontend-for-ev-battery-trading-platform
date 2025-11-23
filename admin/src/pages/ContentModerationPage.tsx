@@ -3,7 +3,7 @@ import {
     Box, Typography, Paper, useTheme, Stack, 
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
     Button, Chip, TextField, Select, MenuItem, InputLabel, FormControl,
-    CircularProgress, Alert, 
+    CircularProgress, Alert, Pagination // <-- Đã thêm Pagination
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,14 +23,18 @@ import {
     type SaleMethod, 
     ProductStatusValue, 
     SaleMethodValue, 
+    ProductType,
     getProductsForModeration, 
+    countProduct, 
     updateProductStatusApi,
     verifyProductApi,
     unverifyProductApi,
-    ProductType
 } from '../services/productService'; 
 import { VIETNAM_PROVINCES, type District, type Province } from '../data/vietnamLocations'; 
 // ===========================================
+
+// Kích thước trang cố định
+const PAGE_SIZE = 10; // Đã định nghĩa kích thước trang
 
 // Hàm helper được giữ lại trong component (chỉ phục vụ UI)
 const getStatusString = (status: ProductStatus): string => {
@@ -78,6 +82,7 @@ interface ProductFilters {
     filterIsVerified: string; 
     productType: string;
     createAt: string;
+    // NOTE: page và pageSize KHÔNG cần nằm trong ProductFilters vì chúng được quản lý riêng bằng state `page` và hằng số `PAGE_SIZE`.
 }
 
 const defaultFilters: ProductFilters = {
@@ -106,21 +111,30 @@ const ContentModerationPage: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(true); 
     const [error, setError] = useState<string | null>(null); 
     
+    // State phân trang: Trang hiện tại và Tổng số lượng
+    const [page, setPage] = useState<number>(1); // <-- Đã thêm State page
+    const [totalCount, setTotalCount] = useState<number>(0); // <-- Đã thêm State totalCount
+    
     // State lưu trữ TẤT CẢ giá trị lọc hiện tại (chưa áp dụng)
     const [currentFilters, setCurrentFilters] = useState<ProductFilters>(defaultFilters);
 
     // State lưu trữ giá trị lọc ĐÃ ÁP DỤNG (dùng để call API)
     const [appliedFilters, setAppliedFilters] = useState<ProductFilters>(defaultFilters);
     
-    // State trigger: Dùng để force gọi API, kể cả khi appliedFilters không thay đổi.
-    const [searchTrigger, setSearchTrigger] = useState<number>(0); 
-    
-    const { 
-        filterStatus, filterDate, searchTerm, minPrice, maxPrice, 
-        sellerId, filterProvince, filterDistrict, sortBy, saleMethod,
-        filterIsSpam, filterIsVerified, productType, createAt, 
-    } = currentFilters;
+    // State trigger: Dùng để force gọi API, kể cả khi appliedFilters hoặc page thay đổi.
+    const [searchTrigger, setSearchTrigger] = useState<number>(0); // Giá trị này kích hoạt fetch
 
+    // --- LOGIC PHÂN TRANG ---
+    const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+        // Nếu trang thay đổi, đặt lại trang mới và kích hoạt fetch
+        if (value !== page) {
+            setPage(value);
+            setSearchTrigger(prev => prev + 1); 
+            // Cuộn lên đầu trang nếu cần
+            window.scrollTo(0, 0); 
+        }
+    };
+    
     // Hàm chung để cập nhật các trường lọc & xử lý reset Quận/Huyện khi Tỉnh thay đổi
     const handleFilterChange = (field: keyof ProductFilters, value: string | number | 'newest' | 'oldest' | 'All') => {
         if (field === 'filterProvince') {
@@ -136,9 +150,9 @@ const ContentModerationPage: React.FC = () => {
     
     // --- LOGIC LỌC QUẬN/HUYỆN PHỤ THUỘC ---
     const selectedProvince = useMemo(() => {
-        if (filterProvince === 'All') return null;
-        return VIETNAM_PROVINCES.find(p => p.id === filterProvince);
-    }, [filterProvince]);
+        if (currentFilters.filterProvince === 'All') return null;
+        return VIETNAM_PROVINCES.find(p => p.id === currentFilters.filterProvince);
+    }, [currentFilters.filterProvince]);
 
     const districtsList = useMemo(() => {
         return selectedProvince ? selectedProvince.districts : [];
@@ -147,17 +161,21 @@ const ContentModerationPage: React.FC = () => {
     // --- LOGIC TÌM KIẾM/ĐẶT LẠI ---
     
     const handleSearch = () => {
-        // Áp dụng các filter hiện tại vào appliedFilters 
+        // 1. Áp dụng các filter hiện tại
         setAppliedFilters(currentFilters);
-        // Kích hoạt State Trigger để force API call
+        // 2. Reset về trang 1
+        setPage(1); 
+        // 3. Kích hoạt State Trigger để force API call
         setSearchTrigger(prev => prev + 1);
     };
 
     const handleReset = () => {
-        // Đặt lại cả currentFilters và appliedFilters
+        // 1. Đặt lại cả currentFilters và appliedFilters
         setCurrentFilters(defaultFilters);
         setAppliedFilters(defaultFilters);
-        // Kích hoạt State Trigger để force API call với bộ lọc mặc định
+        // 2. Reset về trang 1
+        setPage(1); 
+        // 3. Kích hoạt State Trigger để force API call với bộ lọc mặc định
         setSearchTrigger(prev => prev + 1);
     };
 
@@ -173,7 +191,7 @@ const ContentModerationPage: React.FC = () => {
         if (appliedFilters.filterDistrict !== 'All') {
             const selectedDist = selectedProv.districts.find(d => d.id === appliedFilters.filterDistrict);
             if (selectedDist) {
-                address = `${address}, ${selectedDist.name}`; 
+                address = `${selectedDist.name}, ${address}`; 
             }
         }
         
@@ -187,24 +205,23 @@ const ContentModerationPage: React.FC = () => {
         return null;
     }
 
-    // --- LOGIC FETCH DATA (SỬ DỤNG appliedFilters) ---
+    // --- LOGIC FETCH DATA (SỬ DỤNG appliedFilters & page) ---
     const fetchProducts = useCallback(async () => {
         setLoading(true);
         setError(null);
 
         const { 
-            filterStatus, searchTerm, filterDate, minPrice, maxPrice, 
+            filterStatus, searchTerm, minPrice, maxPrice, 
             sellerId, sortBy, saleMethod, filterIsSpam, filterIsVerified,
             productType, createAt,
         } = appliedFilters;
 
         try {
-            // Sửa lỗi kiểu dữ liệu: Ép kiểu kết quả về SaleMethod | null
+            // Chuẩn bị tham số cho API
             const method: SaleMethod | null = saleMethod === 'All' 
                 ? null 
                 : SaleMethodValue[saleMethod as keyof typeof SaleMethodValue] as SaleMethod; 
 
-            // Chuyển đổi giá trị boolean filters
             const isSpamFilter = convertFilterToBoolean(filterIsSpam);
             const isVerifiedFilter = convertFilterToBoolean(filterIsVerified);
 
@@ -215,21 +232,57 @@ const ContentModerationPage: React.FC = () => {
             const createAtFilter = createAt 
                 ? new Date(createAt).toISOString() // Chuyển về ISO 8601 (UTC)
                 : null;
-
-            const data = await getProductsForModeration(
+            
+            // TẠO OBJECT CHỨA CÁC THAM SỐ FILTER DÙNG CHUNG
+            const commonFilterParams = {
                 filterStatus, 
                 searchTerm, 
-                minPrice ? Number(minPrice) : null,
-                maxPrice ? Number(maxPrice) : null,
-                sellerId ? Number(sellerId) : null,
-                currentPickupAddress, 
-                sortBy,
-                method,
-                isSpamFilter, 
-                isVerifiedFilter, 
-                productTypeFilter,
-                createAtFilter,
+                minPrice: minPrice ? Number(minPrice) : null,
+                maxPrice: maxPrice ? Number(maxPrice) : null,
+                sellerId: sellerId ? Number(sellerId) : null,
+                pickupAddress: currentPickupAddress, 
+                saleMethod: method,
+                isSpam: isSpamFilter, 
+                isVerified: isVerifiedFilter, 
+                productType: productTypeFilter,
+                createAt: createAtFilter,
+            };
+
+            // 1. GỌI API ĐẾM TỔNG SỐ LƯỢNG
+            const count = await countProduct(
+                commonFilterParams.filterStatus,
+                commonFilterParams.searchTerm,
+                commonFilterParams.minPrice,
+                commonFilterParams.maxPrice,
+                commonFilterParams.sellerId,
+                commonFilterParams.pickupAddress,
+                commonFilterParams.saleMethod,
+                commonFilterParams.isSpam,
+                commonFilterParams.isVerified,
+                commonFilterParams.productType,
+                commonFilterParams.createAt
             );
+            
+            setTotalCount(count); // <-- Cập nhật tổng số lượng
+
+            // 2. GỌI API LẤY DỮ LIỆU CỦA TRANG HIỆN TẠI
+            const data = await getProductsForModeration(
+                commonFilterParams.filterStatus,
+                commonFilterParams.searchTerm,
+                commonFilterParams.minPrice,
+                commonFilterParams.maxPrice,
+                commonFilterParams.sellerId,
+                commonFilterParams.pickupAddress,
+                sortBy,
+                commonFilterParams.saleMethod,
+                commonFilterParams.isSpam,
+                commonFilterParams.isVerified,
+                commonFilterParams.productType,
+                commonFilterParams.createAt,
+                page, // <-- Truyền page hiện tại
+                PAGE_SIZE // <-- Truyền Page Size
+            );
+            
             setProducts(data);
             
         } catch (err) {
@@ -239,20 +292,32 @@ const ContentModerationPage: React.FC = () => {
             setLoading(false);
         }
     }, [
-        appliedFilters, // Phụ thuộc vào appliedFilters để lấy giá trị lọc mới nhất
+        appliedFilters, 
         currentPickupAddress,
+        page, // <-- Thêm page vào dependency list
     ]); 
 
     // Thực hiện fetch khi component mount hoặc searchTrigger thay đổi
     useEffect(() => {
-        fetchProducts(); 
+        // Kiểm tra để đảm bảo trang không vượt quá tổng số trang tối đa sau khi lọc
+        const maxPage = Math.ceil(totalCount / PAGE_SIZE);
+        if (totalCount > 0 && page > maxPage) {
+            // Nếu trang hiện tại lớn hơn số trang tối đa mới, reset về trang cuối cùng hoặc trang 1.
+            setPage(maxPage > 0 ? maxPage : 1);
+            setSearchTrigger(prev => prev + 1); // Kích hoạt lại fetch với trang mới
+        } else {
+             fetchProducts();
+        }
+       
     }, [
         fetchProducts, 
-        searchTrigger // PHỤ THUỘC MỚI: Bắt buộc chạy lại khi searchTrigger thay đổi
+        searchTrigger, 
+        totalCount, // <-- Cần đưa totalCount vào để xử lý edge case (dù logic chính đã nằm trong fetchProducts)
+        page // <-- Khi page thay đổi, useEffect cũng chạy, nhưng fetchProducts đã có page. Giữ lại searchTrigger là đủ.
     ]); 
 
 
-    // --- LOGIC ACTIONS ---
+    // --- LOGIC ACTIONS (Giữ nguyên) ---
     const handleRowClick = (productId: number) => { 
         navigate(`/content/${productId}`); 
     };
@@ -265,6 +330,7 @@ const ContentModerationPage: React.FC = () => {
             setProducts(prevProducts => prevProducts.map(product => 
                 product.productId === id ? { ...product, statusProduct: newStatus } : product
             ));
+            // Không cần gọi lại fetch, chỉ cập nhật cục bộ
 
         } catch (e) {
             console.error('Error updating status:', e);
@@ -272,8 +338,6 @@ const ContentModerationPage: React.FC = () => {
         }
     }, []);
 
-    // NOTE: Các hàm verifyProduct/unverifyProduct nên cập nhật trạng thái isVerified
-    // để UI hiển thị đúng, thay vì chỉ tạo ra bản sao {...product}.
     const verifyProduct = useCallback(async (id: number) => { 
         try {
             await verifyProductApi(id);
@@ -345,13 +409,13 @@ return (
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 4 }}>
             <VisibilityIcon color="action" fontSize="large" /> 
             <Typography variant="h5" fontWeight="bold">
-                Content Moderation
+                Content Moderation ({totalCount} items) {/* <-- Hiển thị tổng số lượng */}
             </Typography>
         </Stack>
 
         <Paper sx={{ p: 3, borderRadius: '8px', boxShadow: theme.shadows[1] }}>
             
-            {/* Thanh Công cụ Lọc/Tìm kiếm */}
+            {/* Thanh Công cụ Lọc/Tìm kiếm (Không thay đổi) */}
             <Box 
                 sx={{ 
                     display: 'flex', 
@@ -367,7 +431,7 @@ return (
                     size="small"
                     placeholder="Search post titles..."
                     variant="outlined"
-                    value={searchTerm} 
+                    value={currentFilters.searchTerm} 
                     onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                     InputProps={{ startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} /> }}
                     sx={{ minWidth: 200 }}
@@ -377,21 +441,21 @@ return (
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>Product Type</InputLabel>
                     <Select
-                    value={productType}
+                    value={currentFilters.productType}
                     label="Product Type"
                     onChange={(e) => handleFilterChange('productType', e.target.value)}
                 >
-                        <MenuItem value="All">All Types</MenuItem>
-                        <MenuItem value="ElectricBattery">Electric Battery</MenuItem>
-                        <MenuItem value="ElectricCarBattery">Electric Car Battery</MenuItem>
-                        <MenuItem value="ElectricScooterBattery">Electric Scooter Battery</MenuItem>
+                    <MenuItem value="All">All Types</MenuItem>
+                    <MenuItem value="ElectricBattery">Electric Battery</MenuItem>
+                    <MenuItem value="ElectricCarBattery">Electric Car Battery</MenuItem>
+                    <MenuItem value="ElectricScooterBattery">Electric Scooter Battery</MenuItem>
                     </Select>
                 </FormControl>
 
                 {/* 2. Lọc theo Status */}
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                     <InputLabel>Status</InputLabel>
-                    <Select value={filterStatus} label="Status" onChange={(e) => handleFilterChange('filterStatus', e.target.value)} >
+                    <Select value={currentFilters.filterStatus} label="Status" onChange={(e) => handleFilterChange('filterStatus', e.target.value)} >
                         <MenuItem value="All">All Statuses</MenuItem>
                         <MenuItem value="Pending">Pending</MenuItem>
                         <MenuItem value="Available">Available</MenuItem> 
@@ -404,7 +468,7 @@ return (
                 {/* 3. Lọc theo Phương thức bán (Sale Method) */}
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                     <InputLabel>Method</InputLabel>
-                    <Select value={saleMethod} label="Method" onChange={(e) => handleFilterChange('saleMethod', e.target.value)} >
+                    <Select value={currentFilters.saleMethod} label="Method" onChange={(e) => handleFilterChange('saleMethod', e.target.value)} >
                         <MenuItem value="All">All Methods</MenuItem>
                         <MenuItem value="FixedPrice">Fixed Price</MenuItem>
                         <MenuItem value="Auction">Auction</MenuItem>
@@ -416,7 +480,7 @@ return (
                     size="small"
                     label="Seller ID"
                     type="number"
-                    value={sellerId}
+                    value={currentFilters.sellerId}
                     onChange={(e) => handleFilterChange('sellerId', e.target.value)}
                     InputLabelProps={{ shrink: true }}
                     sx={{ width: 100 }}
@@ -427,7 +491,7 @@ return (
                     size="small"
                     label="Min Price"
                     type="number"
-                    value={minPrice}
+                    value={currentFilters.minPrice}
                     onChange={(e) => handleFilterChange('minPrice', e.target.value)}
                     InputLabelProps={{ shrink: true }}
                     sx={{ width: 120 }}
@@ -438,7 +502,7 @@ return (
                     size="small"
                     label="Max Price"
                     type="number"
-                    value={maxPrice}
+                    value={currentFilters.maxPrice}
                     onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
                     InputLabelProps={{ shrink: true }}
                     sx={{ width: 120 }}
@@ -448,7 +512,7 @@ return (
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>Province/City</InputLabel>
                     <Select
-                        value={filterProvince}
+                        value={currentFilters.filterProvince}
                         label="Province/City"
                         onChange={(e) => handleFilterChange('filterProvince', e.target.value as number | 'All')}
                     >
@@ -465,9 +529,9 @@ return (
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>District</InputLabel>
                     <Select
-                        value={filterDistrict}
+                        value={currentFilters.filterDistrict}
                         label="District"
-                        disabled={filterProvince === 'All'} 
+                        disabled={currentFilters.filterProvince === 'All'} 
                         onChange={(e) => handleFilterChange('filterDistrict', e.target.value as number | 'All')}
                     >
                         <MenuItem value={'All'}>All Districts</MenuItem>
@@ -483,7 +547,7 @@ return (
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                     <InputLabel>Spam</InputLabel>
                     <Select 
-                        value={filterIsSpam} 
+                        value={currentFilters.filterIsSpam} 
                         label="Spam" 
                         onChange={(e) => handleFilterChange('filterIsSpam', e.target.value)} 
                     >
@@ -497,7 +561,7 @@ return (
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                     <InputLabel>Verified</InputLabel>
                     <Select 
-                        value={filterIsVerified} 
+                        value={currentFilters.filterIsVerified} 
                         label="Verified" 
                         onChange={(e) => handleFilterChange('filterIsVerified', e.target.value)} 
                     >
@@ -510,7 +574,7 @@ return (
                 {/* 11. Kiểu sắp xếp (Sort By) */}
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>Sort By</InputLabel>
-                    <Select value={sortBy} label="Sort By" onChange={(e) => handleFilterChange('sortBy', e.target.value as 'newest' | 'oldest')} >
+                    <Select value={currentFilters.sortBy} label="Sort By" onChange={(e) => handleFilterChange('sortBy', e.target.value as 'newest' | 'oldest')} >
                         <MenuItem value="newest">Newest</MenuItem>
                         <MenuItem value="oldest">Oldest</MenuItem>
                     </Select>
@@ -521,7 +585,7 @@ return (
                     size="small"
                     label="Create At"
                     type="date"
-                    value={createAt}
+                    value={currentFilters.createAt}
                     onChange={(e) => handleFilterChange('createAt', e.target.value)}
                     InputLabelProps={{ shrink: true }}
                     sx={{ minWidth: 150 }}
@@ -640,7 +704,18 @@ return (
                     </TableBody>
                 </Table>
             </TableContainer>
-
+            
+            {/* Component Phân trang */}
+            {totalCount > PAGE_SIZE && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 1 }}>
+                    <Pagination
+                        count={Math.ceil(totalCount / PAGE_SIZE)} // Tính tổng số trang
+                        page={page} // Trang hiện tại
+                        onChange={handlePageChange} // Hàm xử lý chuyển trang
+                        color="primary"
+                    />
+                </Box>
+            )}
         </Paper>
     </Box>
 );

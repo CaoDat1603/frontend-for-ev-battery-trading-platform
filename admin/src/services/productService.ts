@@ -79,7 +79,7 @@ const prefixUrl = (path: string | null): string | null => {
     }
     // Đảm bảo không có dấu '/' thừa hoặc thiếu giữa BASE_URL và path
     const trimmedPath = path.startsWith('/') ? path.substring(1) : path;
-    return `${BASE_URL}/${trimmedPath}`;
+    return `${BASE_URL}products/${trimmedPath}`;
 };
 
 /**
@@ -212,7 +212,7 @@ export async function getProductsForModeration(
     }
 }
 
-export async function countProductSeller(
+export async function countProduct(
     filterStatus: string, 
     searchTerm?: string | null,
     minPrice?: number | null, 
@@ -261,7 +261,7 @@ export async function countProductSeller(
     // 4. Chuyển đổi Object thành chuỗi query (đảm bảo không có & thừa)
     const queryParams = new URLSearchParams(params).toString();
     
-    const url = `${PRODUCT_API_URL}/count-seller?${queryParams}`;
+    const url = `${PRODUCT_API_URL}/count?${queryParams}`;
 
     try {
         const headers = getAuthHeaders();
@@ -283,6 +283,7 @@ export async function countProductSeller(
         if (isNaN(count)) {
             throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
         }
+        console.log(`✅ Total products matching filters: ${count}`);
         
         return count;
 

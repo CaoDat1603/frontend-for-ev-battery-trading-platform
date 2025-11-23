@@ -32,6 +32,8 @@ interface InvoiceLocationState {
   price: number;
   sellerId: number;
   productType: number;
+  returnUrl?: string;
+  isCompleted?: boolean;
 }
 
 // Lấy userId: ưu tiên localStorage('userId'), fallback decode từ accessToken (JWT)
@@ -76,6 +78,8 @@ const InvoiceDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { postId } = useParams<{ postId: string }>();
   const location = useLocation();
+  
+  // Ép kiểu state nhận được từ navigate
   const state = location.state as InvoiceLocationState | undefined;
 
   const [creating, setCreating] = useState(false);
@@ -101,7 +105,7 @@ const InvoiceDetailPage: React.FC = () => {
         setFeeLoading(true);
         setFeeError(null);
         const settings = await OrderService.getActiveFeeSettings(
-          product.productType
+          product.productType + 1
         );
         setFeeSettings(settings);
       } catch (err) {
@@ -168,7 +172,7 @@ const InvoiceDetailPage: React.FC = () => {
         product.productId,
         product.sellerId,
         buyerId,
-        product.productType,
+        product.productType + 1,
         product.price
       );
       console.log(`Đã tạo giao dịch thành công. ID: ${transactionId}`);
@@ -176,7 +180,35 @@ const InvoiceDetailPage: React.FC = () => {
       // 2. Tạo URL thanh toán VNPay (PaymentService)
       const paymentUrl = await PaymentService.createPaymentUrl(transactionId);
 
-      // 3. Chuyển hướng sang cổng thanh toán
+      // ==================================================================
+      // 3. [MỚI] LƯU NGỮ CẢNH TRƯỚC KHI CHUYỂN HƯỚNG (Cho ProductType 4)
+      // ==================================================================
+      
+      // Giả sử ProductType 3 là Đấu giá (Deposit hoặc Fee)
+      if (product.productType === 3 || state?.isCompleted) {
+        let returnUrl = "/";
+        
+        // Logic bạn yêu cầu:
+        if (state?.returnUrl) {
+             returnUrl = state.returnUrl;
+        } else {
+             // Fallback: Cố gắng lấy từ location.state cũ hoặc về trang chủ
+             returnUrl = (location.state as any)?.from || "/";
+        }
+
+        const paymentContext = {
+            returnUrl: returnUrl,
+            actionType: "AUCTION_PAYMENT", // Đánh dấu để PaymentResultPage biết
+            transactionId: transactionId
+        };
+
+        // Lưu vào Session Storage
+        sessionStorage.setItem("payment_context", JSON.stringify(paymentContext));
+      } 
+      
+      // ==================================================================
+
+      // 4. Chuyển hướng sang cổng thanh toán
       window.location.href = paymentUrl;
     } catch (err) {
       console.error("Error while creating payment transaction:", err);

@@ -82,6 +82,12 @@ const getProductTypeLabel = (type: number): string => {
       return "EV";
     case 1:
       return "Battery";
+    case 2:
+      return "CarBattery";
+    case 3:
+      return "ScooterBattery";
+    case 4:
+      return "Bid";
     default:
       return `Type ${type}`;
   }
@@ -246,8 +252,10 @@ const TransactionManagementPage: React.FC = () => {
               onChange={(e) => setFilterProductType(e.target.value as string)}
             >
               <MenuItem value="All">All Types</MenuItem>
-              <MenuItem value="0">EV</MenuItem>
               <MenuItem value="1">Battery</MenuItem>
+              <MenuItem value="2">CarBattery</MenuItem>
+              <MenuItem value="3">ScooterBattery</MenuItem>
+              <MenuItem value="4">Bids</MenuItem>
             </Select>
           </FormControl>
 

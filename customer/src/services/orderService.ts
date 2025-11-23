@@ -277,7 +277,7 @@ export const OrderService = {
       );
 
       const response = await fetch(
-        `${API_FEES_ADMIN_URL}/active/${productType}`,
+        `${API_FEES_ADMIN_URL}/member/${productType}`,
         {
           method: "GET",
           headers: authHeaders(token),

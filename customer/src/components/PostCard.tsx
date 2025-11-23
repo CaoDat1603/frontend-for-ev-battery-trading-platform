@@ -27,6 +27,9 @@ type AuctionStatus = 0 | 1 | 2 | 3 | 4; // Ví dụ: 0=Pending, 1=Active, 2=Comp
 // --- Kiểu dữ liệu cho Tin đăng ---
 export interface PostData {
     productId: number;
+    sellerId: number;
+    productName: string;
+    productType: number;
     title: string;
     price: number; 
     pickupAddress: string; 
@@ -97,7 +100,17 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
     const handleBuyNow = (e: React.MouseEvent) => {
         e.stopPropagation(); 
-        console.log(`Tiến hành Mua Ngay sản phẩm: ${post.title}`);
+        // Nếu là mua ngay: chuyển sang màn hình chi tiết hóa đơn
+            navigate(`/invoice-detail/${post.productId}`, {
+                state: {
+                    productId: post.productId,
+                    title: post.title,
+                    productName: post.productName,
+                    price: post.price,
+                    sellerId: post.sellerId,
+                    productType: post.productType,
+                },
+            });
     };
 
     // ✅ CẬP NHẬT HÀM XỬ LÝ ĐẤU GIÁ (ASYNC)
@@ -135,7 +148,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 if (auctionId) {
                     console.log(`Tìm thấy Auction ID: ${auctionId}. Chuyển đến trang chi tiết.`);
                     // Điều hướng đến trang chi tiết đấu giá
-                    navigate(`/detail-auction/${auctionId}`);
+                    navigate(`/detail-auction/${auctionId}/${post.sellerId}`);
                 } else {
                      // Nếu tìm thấy nhưng không có ID đấu giá hợp lệ (xảy ra lỗi data)
                     throw new Error("Dữ liệu đấu giá không hợp lệ (Missing Auction ID).");
@@ -145,7 +158,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 console.log("Không tìm thấy Auction. Chuyển đến trang tạo mới.");
                 
                 // Điều hướng đến trang tạo đấu giá mới
-                navigate(`/create-auction/${post.productId}`);
+                navigate(`/create-auction/${post.productId}/${post.sellerId}`);
             }
 
         } catch (error) {

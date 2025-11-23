@@ -15,6 +15,8 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
+  CircularProgress,
+  CardMedia,
 } from "@mui/material";
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -27,11 +29,18 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PersonIcon from "@mui/icons-material/Person";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import ReportIcon from "@mui/icons-material/Report";
+import GavelIcon from "@mui/icons-material/Gavel";
 
 import {
   OrderService,
   type Transaction as OrderTransaction,
 } from "../services/orderService";
+
+// 🚨 IMPORT TỪ PRODUCT SERVICE (Giả định như các lần trước)
+import { getProductById, type ProductData } from "../services/productService"; 
+
+// --- HELPER FUNCTIONS ---
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat("vi-VN", {
@@ -47,7 +56,7 @@ const getStatusChip = (status: string): JSX.Element => {
   let Icon: typeof AccessTimeIcon | typeof CheckCircleOutlineIcon | typeof ErrorOutlineIcon =
     AccessTimeIcon;
 
-  if (lower.includes("pending") || lower.includes("created")) {
+  if (lower.includes("pending") || lower.includes("created") || lower.includes("processing")) {
     color = "warning";
     Icon = AccessTimeIcon;
   } else if (
@@ -79,16 +88,16 @@ const getStatusChip = (status: string): JSX.Element => {
 
 const getProductTypeLabel = (type: number): string => {
   switch (type) {
-    case 0:
-      return "EV";
     case 1:
-      return "Battery";
+      return "Pin xe điện";
     case 2:
-      return "CarBattery";
+      return "Ô tô điện";
     case 3:
-      return "ScooterBattery";
+      return "Xem máy điện điện";
+    case 4:
+      return "Giao dịch cọc đấu giá";
     default:
-      return `Type ${type}`;
+      return `Loại ${type}`;
   }
 };
 
@@ -99,10 +108,9 @@ const formatDateTime = (iso: string | null | undefined): string => {
   return d.toLocaleString("vi-VN");
 };
 
-const isCancelable = (tx: OrderTransaction): boolean => {
-  const lower = (tx.transactionStatus ?? "").toLowerCase();
-  return lower.includes("pending") || lower.includes("created");
-};
+// 🚨 ĐÃ LOẠI BỎ: isCancelable và handleCancel (vì yêu cầu chuyển sang nút Phàn nàn)
+
+// --- COMPONENT CHÍNH ---
 
 const TransactionDetailPage: React.FC = () => {
   const { transactionId } = useParams<{ transactionId: string }>();
@@ -110,10 +118,13 @@ const TransactionDetailPage: React.FC = () => {
   const theme = useTheme();
 
   const [transaction, setTransaction] = useState<OrderTransaction | null>(null);
+  const [product, setProduct] = useState<ProductData | null>(null); // State mới cho Product
   const [loading, setLoading] = useState<boolean>(true);
+  const [productLoading, setProductLoading] = useState<boolean>(true); // Loading cho Product
   const [error, setError] = useState<string | null>(null);
-  const [cancelling, setCancelling] = useState<boolean>(false);
+  // 🚨 ĐÃ LOẠI BỎ: state 'cancelling'
 
+  // Load chi tiết giao dịch
   useEffect(() => {
     const idNum = Number(transactionId);
     if (Number.isNaN(idNum)) {
@@ -141,63 +152,61 @@ const TransactionDetailPage: React.FC = () => {
 
     void loadDetail();
   }, [transactionId]);
+  
+  // Load chi tiết sản phẩm sau khi có chi tiết giao dịch
+  useEffect(() => {
+    if (transaction?.productId) {
+      const loadProductDetail = async () => {
+        setProductLoading(true);
+        try {
+          const productData = await getProductById(transaction.productId);
+          setProduct(productData);
+        } catch (err) {
+          console.error("Failed to load product detail", err);
+          // Không set error toàn cục, chỉ ảnh hưởng đến Product Card
+        } finally {
+          setProductLoading(false);
+        }
+      };
+      void loadProductDetail();
+    }
+  }, [transaction]);
 
   const handleGoBack = () => {
-    navigate("/transactions");
+    navigate("/my-purchases");
   };
-
-  const handleCancel = async () => {
+  
+  const handleViewUserProfile = (userId: number) => {
+    // Chuyển sang trang sơ lược người dùng
+    navigate(`/view-user/${userId}`); 
+  };
+  
+  const handleViewProductDetail = (productId: number) => {
+    // Chuyển sang trang chi tiết sản phẩm/tin đăng
+    navigate(`/content/${productId}`);
+  };
+  
+  const handleComplaint = () => {
     if (!transaction) return;
-    if (!window.confirm(`Xác nhận hủy giao dịch #${transaction.transactionId}?`))
-      return;
-
-    setCancelling(true);
-    setError(null);
-    try {
-      await OrderService.cancelTransaction(transaction.transactionId);
-      // reload lại detail
-      const data = await OrderService.getTransactionById(
-        transaction.transactionId
-      );
-      setTransaction(data);
-    } catch (err: any) {
-      console.error("Failed to cancel transaction", err);
-      setError(
-        err?.message ||
-          `Không thể hủy giao dịch #${transaction.transactionId}.`
-      );
-    } finally {
-      setCancelling(false);
-    }
+    // Chuyển sang trang gửi phàn nàn (Giả định route)
+    navigate(`/create-complaint?againstuserid=${transaction.sellerId}&transactionId=${transaction.transactionId}`);
   };
+
 
   if (loading) {
-    return <Typography>Đang tải chi tiết giao dịch...</Typography>;
-  }
-
-  if (error) {
     return (
-      <Alert severity="error">
-        <Typography sx={{ mb: 1 }}>{error}</Typography>
-        <Button variant="contained" onClick={handleGoBack} startIcon={<ArrowBackIcon />}>
-          Quay lại Danh sách Giao dịch
-        </Button>
-      </Alert>
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <CircularProgress />
+        <Typography sx={{ mt: 2 }}>Đang tải chi tiết giao dịch...</Typography>
+      </Box>
     );
   }
 
-  if (!transaction) {
+  if (error || !transaction) {
     return (
-      <Alert severity="error">
-        <Typography>
-          Không tìm thấy Transaction ID: <strong>{transactionId}</strong>.
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={handleGoBack}
-          sx={{ mt: 2 }}
-          startIcon={<ArrowBackIcon />}
-        >
+      <Alert severity="error" sx={{ p: 3, m: 3 }}>
+        <Typography sx={{ mb: 1 }}>{error || `Không tìm thấy Transaction ID: ${transactionId}`}</Typography>
+        <Button variant="contained" onClick={handleGoBack} startIcon={<ArrowBackIcon />}>
           Quay lại Danh sách Giao dịch
         </Button>
       </Alert>
@@ -207,9 +216,19 @@ const TransactionDetailPage: React.FC = () => {
   const totalPlatform = transaction.platformAmount;
   const totalBuyer = transaction.buyerAmount || transaction.basePrice;
   const totalSeller = transaction.sellerAmount || transaction.basePrice;
+  
+  // Lấy tên sản phẩm và ảnh
+  const productName = productLoading 
+    ? "Đang tải tên sản phẩm..." 
+    : (product?.title || `Sản phẩm #${transaction.productId}`);
+    
+  const productImageUrl = productLoading 
+    ? "https://via.placeholder.com/150?text=Loading" 
+    : (product?.imageUrl || "https://via.placeholder.com/150?text=No+Image");
+
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
       <Button
         startIcon={<ArrowBackIcon />}
         onClick={handleGoBack}
@@ -222,43 +241,78 @@ const TransactionDetailPage: React.FC = () => {
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 4 }}>
         <MonetizationOnIcon color="primary" fontSize="large" />
         <Typography variant="h5" fontWeight="bold">
-          Chi Tiết Giao Dịch: #{transaction.transactionId}
+          Chi Tiết Hóa Đơn: #{transaction.transactionId}
         </Typography>
+        {getStatusChip(transaction.transactionStatus)}
       </Stack>
+      
+      {/* 🚨 PHẦN MỚI: CARD THÔNG TIN SẢN PHẨM */}
+      <Card sx={{ mb: 3, boxShadow: 6 }}>
+        <CardContent>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center">
+                <Box sx={{ width: 100, height: 100, flexShrink: 0 }}>
+                    {productLoading ? (
+                        <CircularProgress size={30} sx={{ m: 3 }} />
+                    ) : (
+                        <CardMedia
+                            component="img"
+                            sx={{ width: '100%', height: '100%', objectFit: "cover", borderRadius: '4px' }}
+                            image={productImageUrl}
+                            alt={productName}
+                        />
+                    )}
+                </Box>
+                <Box flexGrow={1}>
+                    <Typography variant="h6" fontWeight="bold" color="primary.main">
+                        {productName}
+                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                        <Chip label={getProductTypeLabel(transaction.productType)} size="small" icon={<GavelIcon fontSize="small" />} color="info" />
+                        <Typography variant="body2" color="text.secondary">
+                            Mã SP: **{transaction.productId}**
+                        </Typography>
+                    </Stack>
+                    <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => handleViewProductDetail(transaction.productId)}
+                        sx={{ mt: 1 }}
+                        disabled={productLoading}
+                    >
+                        Xem chi tiết sản phẩm
+                    </Button>
+                </Box>
+            </Stack>
+        </CardContent>
+      </Card>
+      {/* ---------------------------------- */}
+
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
-        {/* A. Thông tin giao dịch */}
+        {/* A. Thông tin giao dịch & Người dùng */}
         <Card sx={{ width: { xs: "100%", md: "65%" } }}>
           <CardContent>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              sx={{ mb: 2 }}
-            >
-              <Typography variant="h6" fontWeight="bold" color="text.secondary">
-                Thông Tin Cơ Bản
-              </Typography>
-              {getStatusChip(transaction.transactionStatus)}
-            </Stack>
+            <Typography variant="h6" fontWeight="bold" color="text.secondary" sx={{ mb: 2 }}>
+                Thông Tin Chi Tiết Giao Dịch
+            </Typography>
 
             <Divider sx={{ my: 2 }} />
 
             {/* Tổng quan số tiền */}
-            <Stack direction="row" spacing={3} sx={{ mb: 3 }} flexWrap="wrap">
+            <Stack direction="row" spacing={2} sx={{ mb: 3 }} flexWrap="wrap">
               <Paper
                 sx={{
                   p: 2,
                   bgcolor: theme.palette.primary.light + "20",
                   flexGrow: 1,
-                  minWidth: 200,
+                  minWidth: 150,
                   textAlign: "center",
                 }}
               >
                 <Typography variant="caption" color="text.secondary">
-                  Buyer Pays (Total)
+                  Người Mua Thanh Toán
                 </Typography>
-                <Typography variant="h4" fontWeight="bold" color="primary">
+                <Typography variant="h5" fontWeight="bold" color="primary">
                   {formatCurrency(totalBuyer)}
                 </Typography>
               </Paper>
@@ -266,16 +320,16 @@ const TransactionDetailPage: React.FC = () => {
               <Paper
                 sx={{
                   p: 2,
-                  bgcolor: theme.palette.grey[100],
+                  bgcolor: theme.palette.success.light + "20",
                   flexGrow: 1,
-                  minWidth: 200,
+                  minWidth: 150,
                   textAlign: "center",
                 }}
               >
                 <Typography variant="caption" color="text.secondary">
-                  Seller Receives
+                  Người Bán Nhận
                 </Typography>
-                <Typography variant="h5" fontWeight="bold">
+                <Typography variant="h5" fontWeight="bold" color="success.main">
                   {formatCurrency(totalSeller)}
                 </Typography>
               </Paper>
@@ -285,12 +339,12 @@ const TransactionDetailPage: React.FC = () => {
                   p: 2,
                   bgcolor: theme.palette.grey[100],
                   flexGrow: 1,
-                  minWidth: 200,
+                  minWidth: 150,
                   textAlign: "center",
                 }}
               >
                 <Typography variant="caption" color="text.secondary">
-                  Platform Revenue
+                  Phí Sàn (Platform)
                 </Typography>
                 <Typography variant="h5" fontWeight="bold">
                   {formatCurrency(totalPlatform)}
@@ -307,56 +361,25 @@ const TransactionDetailPage: React.FC = () => {
                   <AssignmentIcon color="primary" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Product"
-                  secondary={
-                    <>
-                      <Typography
-                        component="span"
-                        sx={{ fontWeight: "bold", mr: 1 }}
-                      >
-                        {getProductTypeLabel(transaction.productType)}
-                      </Typography>
-                      <Button
-                        size="small"
-                        onClick={() =>
-                          navigate(`/content/${transaction.productId}`)
-                        }
-                      >
-                        View Product #{transaction.productId}
-                      </Button>
-                    </>
-                  }
+                  primary="Loại Sản phẩm"
+                  secondary={getProductTypeLabel(transaction.productType)}
                 />
-              </ListItem>
-
-              <ListItem disableGutters>
-                <ListItemIcon>
-                  <PersonIcon color="primary" />
-                </ListItemIcon>
                 <ListItemText
-                  primary="Buyer ID"
-                  secondary={
-                    <Typography
-                      component="span"
-                      sx={{
-                        fontWeight: "bold",
-                        cursor: "pointer",
-                        color: theme.palette.info.main,
-                      }}
-                      onClick={() => navigate(`/users/${transaction.buyerId}`)}
-                    >
-                      {transaction.buyerId}
-                    </Typography>
-                  }
+                  primary="Giá cơ sở"
+                  secondary={formatCurrency(transaction.basePrice)}
                 />
               </ListItem>
 
+              <Divider component="li" sx={{ my: 1 }} />
+
               <ListItem disableGutters>
+
+                {/* Người bán */}
                 <ListItemIcon>
                   <PersonIcon color="secondary" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Seller ID"
+                  primary="Người Bán (Seller ID)"
                   secondary={
                     <Typography
                       component="span"
@@ -365,9 +388,9 @@ const TransactionDetailPage: React.FC = () => {
                         cursor: "pointer",
                         color: theme.palette.info.main,
                       }}
-                      onClick={() => navigate(`/users/${transaction.sellerId}`)}
+                      onClick={() => handleViewUserProfile(transaction.sellerId)}
                     >
-                      {transaction.sellerId}
+                      {transaction.sellerId} (Click để xem sơ lược)
                     </Typography>
                   }
                 />
@@ -380,18 +403,11 @@ const TransactionDetailPage: React.FC = () => {
                   <AccountBalanceWalletIcon color="action" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Base Price"
-                  secondary={formatCurrency(transaction.basePrice)}
-                />
-                <ListItemText
-                  primary="Created At"
+                  primary="Ngày Tạo Giao Dịch"
                   secondary={formatDateTime(transaction.createdAt)}
                 />
-              </ListItem>
-
-              <ListItem disableGutters>
                 <ListItemText
-                  primary="Updated At"
+                  primary="Cập Nhật Lần Cuối"
                   secondary={formatDateTime(transaction.updatedAt)}
                 />
               </ListItem>
@@ -399,30 +415,32 @@ const TransactionDetailPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* B. Action cho Admin */}
+        {/* B. Action: Phàn nàn về hóa đơn */}
         <Stack spacing={3} sx={{ width: { xs: "100%", md: "35%" } }}>
           <Paper sx={{ p: 3, boxShadow: theme.shadows[3] }}>
             <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-              Admin Actions
+              Hành Động & Hỗ Trợ
             </Typography>
 
             <Stack spacing={2}>
               <Button
                 variant="contained"
                 color="error"
-                disabled={!isCancelable(transaction) || cancelling}
-                onClick={handleCancel}
+                startIcon={<ReportIcon />}
+                onClick={handleComplaint}
+                fullWidth
               >
-                {cancelling ? "Cancelling..." : "Cancel Transaction"}
+                Gửi Phàn Nàn về Hóa Đơn
               </Button>
-
-              <Button variant="outlined" onClick={handleGoBack}>
-                Back to Transaction List
+              
+              <Divider />
+              
+              <Button variant="outlined" onClick={handleGoBack} fullWidth>
+                Quay lại Danh sách Giao dịch
               </Button>
 
               <Typography variant="body2" color="text.secondary">
-                Lưu ý: Chỉ nên hủy giao dịch khi có xác nhận rõ ràng từ cả người
-                mua và người bán hoặc khi hệ thống phát hiện bất thường.
+                Nếu bạn phát hiện sai sót hoặc có vấn đề với giao dịch này, vui lòng sử dụng chức năng "Gửi Phàn Nàn" để được hỗ trợ.
               </Typography>
             </Stack>
           </Paper>

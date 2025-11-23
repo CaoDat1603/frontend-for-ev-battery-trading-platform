@@ -29,10 +29,12 @@ import { WishlistPage } from './pages/WishlistPage';
 import CreateAuctionPage from './pages/CreateAuctionPage'
 import AuctionDetailPage from './pages/AuctionDetailPage';
 import { ManageAuctionsPage } from './pages/ManageAuctionPage';
+import MyPurchasesPage from './pages/MyPurchasesPage'
 
 // BỔ SUNG: Import LocationProvider
 import { LocationProvider } from './context/LocationContext'; 
 
+import TransactionDetailPage from './pages/TransactionDetailPage'
 import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import PaymentResultPage from './pages/PaymentResultPage';
 import CreateComplaint from './pages/Complaint/CreateComplaint';
@@ -208,7 +210,7 @@ const App: React.FC = () => (
                     }
                 />    
                 <Route
-                    path="/detail-auction/:auctionId"
+                    path="/detail-auction/:auctionId/:sellerId"
                     element={
                         <LayoutMain>
                             <ScrollToTop /> 
@@ -217,7 +219,7 @@ const App: React.FC = () => (
                     }
                 />    
                 <Route
-                    path="/create-auction/:productId"
+                    path="/create-auction/:productId/:sellerId"
                     element={
                         <LayoutMain>
                             <ScrollToTop /> 
@@ -310,7 +312,25 @@ const App: React.FC = () => (
                         <UserComplaintList />
                     </LayoutMain>
                     }
-                />        
+                />       
+                <Route
+                    path="/my-purchases"
+                    element={
+                    <LayoutMain>
+                        <ScrollToTop />
+                        <MyPurchasesPage />
+                    </LayoutMain>
+                    }
+                />   
+                <Route
+                    path="transactions/:transactionId"
+                    element={
+                    <LayoutMain>
+                        <ScrollToTop />
+                        <TransactionDetailPage />
+                    </LayoutMain>
+                    }
+                />         
             </Routes>
         </BrowserRouter>
     </LocationProvider>

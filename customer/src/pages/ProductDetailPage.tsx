@@ -8,56 +8,50 @@ import {
 import { useParams, useNavigate, Link } from 'react-router-dom';
 
 // ICONS
-import AssignmentIcon from '@mui/icons-material/Assignment'; // Icon thêm vào tiêu đề
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import FmdGoodIcon from '@mui/icons-material/FmdGood'; 
 import AttachFileIcon from '@mui/icons-material/AttachFile'; 
 import DownloadIcon from '@mui/icons-material/Download'; 
 import VisibilityIcon from '@mui/icons-material/Visibility'; 
 import CloseIcon from '@mui/icons-material/Close'; 
-import GavelIcon from '@mui/icons-material/Gavel'; // Icon Đấu giá
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'; // Icon Mua ngay
-import StarIcon from '@mui/icons-material/Star'; // Icon Đánh giá
-import HomeIcon from '@mui/icons-material/Home'; // Icon Trang chủ
-import CategoryIcon from '@mui/icons-material/Category'; // Icon Danh mục
-// ✅ ICON MỚI CHO DANH MỤC
+import GavelIcon from '@mui/icons-material/Gavel';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import StarIcon from '@mui/icons-material/Star';
+import HomeIcon from '@mui/icons-material/Home';
+import CategoryIcon from '@mui/icons-material/Category';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
 
 // --- IMPORT TỪ SERVICE FILE (Product Service) ---
+// Giả định các import này đã tồn tại và hoạt động
 import { 
     type ProductStatus, 
     ProductStatusValue,
-    type ProductType, 
     type SaleMethod, 
     SaleMethodValue, 
     type ProductData,
-    getProductById, // <-- Hàm API cần dùng
+    getProductById,
 } from '../services/productService'; 
 
 // --- IMPORT DỊCH VỤ ĐẤU GIÁ (Auction Service) ---
-// ✅ Cần đảm bảo file 'auctionService' có chứa các hàm/types này
 import { 
     searchAuction, 
     type AuctionDetailData, 
-    // Giả định AuctionStatus (0=Pending, 1=Active, 2=Completed...)
     type AuctionStatus 
 } from '../services/auctionService'; 
 
 
-// --- KHAI BÁO CÁC GIÁ TRỊ CONSTANT CHO PRODUCT TYPE (Dựa trên context) ---
+// --- CONSTANTS VÀ HELPERS ---
 const PRODUCT_TYPE_VALUES = {
     ElectricBattery: 0,
     ElectricCarBattery: 1,
     ElectricScooterBattery: 2,
 } as const;
 
-
-// --- INTERFACE VÀ MAP CHO BREADCRUMBS ---
 interface CategoryLinkInfo {
     name: string;
     icon: React.ElementType;
@@ -66,7 +60,6 @@ interface CategoryLinkInfo {
 
 const getCategoryLinkInfo = (type: number): CategoryLinkInfo => {
     const defaultInfo: CategoryLinkInfo = { name: 'Danh mục khác', icon: CategoryIcon, path: '/categories' };
-
     switch (type) {
         case PRODUCT_TYPE_VALUES.ElectricCarBattery:
             return { name: 'Ô tô điện', icon: DirectionsCarIcon, path: '/car-ecycle' };
@@ -79,30 +72,21 @@ const getCategoryLinkInfo = (type: number): CategoryLinkInfo => {
     }
 };
 
-// Hàm helper để chuyển đổi giá trị số sang chuỗi hiển thị
-const getProductTypeString = (type: number): string => {
-    // Sử dụng helper mới để lấy tên danh mục tiếng Việt
-    return getCategoryLinkInfo(type).name;
-};
-
-// --- INTERFACE CHUẨN HÓA (Dành cho Client UI) ---
 interface ProductDetail extends ProductData { 
-    // Giữ nguyên ProductData DTO
-    rating: number; // Thêm rating và count cho dễ xử lý review
+    rating: number;
     count: number;
     buyerId: number;
-    // Đã loại bỏ deadline
 }
 
-// --- FAKE DATA cho ĐÁNH GIÁ SẢN PHẨM ---
-const getFakeUIData = (productId: number): { rating: number, count: number } => {
-    // Đã loại bỏ deadline
-    if (productId === 1) return { rating: 4.8, count: 45 };
-    if (productId === 2) return { rating: 3.5, count: 12 };
-    return { rating: 0, count: 0 };
-};
+// FAKE DATA cho ĐÁNH GIÁ SẢN PHẨM
+//const getFakeUIData = (productId: number): { rating: number, count: number } => {
+//    if (productId === 1) return { rating: 4.8, count: 45 };
+//    if (productId === 2) return { rating: 3.5, count: 12 };
+//    // Giả lập ID 3 là SoldOut/Suspended để test
+//    if (productId === 3) return { rating: 4.1, count: 20 }; 
+//    return { rating: 0, count: 0 };
+//};
 
-// --- HELPER FUNCTIONS (Cập nhật để hiển thị cho Khách) ---
 const getSaleMethodChip = (method: SaleMethod): JSX.Element => {
     if (method === SaleMethodValue.Auction) {
         return <Chip label="Đấu giá" color="warning" icon={<GavelIcon style={{fontSize: 16}}/>} size="small" />;
@@ -115,6 +99,43 @@ const getCurrentUserId = (): number => {
   return stored ? parseInt(stored, 10) : 0;
 };
 
+// ✅ CHỨC NĂNG: Lấy thông báo lỗi trạng thái cụ thể
+const getUnavailableStatusMessage = (status: ProductStatus, postId: string | undefined): string => {
+    
+    switch (status) {
+        case ProductStatusValue.Block:
+            return `Tin đăng #${postId} đã bị **chặn** vĩnh viễn và không thể giao dịch.`;
+        case ProductStatusValue.Pending:
+            return `Tin đăng #${postId} đang **chờ duyệt** và chưa được kích hoạt bán.`;
+        case ProductStatusValue.SoldOut: 
+            return `Tin đăng #${postId} đã **bán hết** hoặc giao dịch đã hoàn tất.`;
+        case ProductStatusValue.Suspended:
+            return `Tin đăng #${postId} đã bị **tạm ngưng** do vi phạm quy tắc.`;
+        case ProductStatusValue.Available:
+        default:
+            return `Tin đăng #${postId} không khả dụng (Trạng thái: ${status}).`;
+    }
+}
+
+// ✅ CHỨC NĂNG: Lấy Chip hiển thị trạng thái
+const getStatusChip = (status: ProductStatus): JSX.Element => {
+    switch (status) {
+        case ProductStatusValue.Available:
+            return <Chip label="Còn hàng" color="success" size="small" />;
+        case ProductStatusValue.SoldOut:
+            return <Chip label="Đã bán hết" color="default" size="small" variant="outlined" />;
+        case ProductStatusValue.Suspended:
+            return <Chip label="Tạm ngưng" color="error" size="small" />;
+        case ProductStatusValue.Block:
+            return <Chip label="Bị chặn" color="error" size="small" />;
+        case ProductStatusValue.Pending:
+            return <Chip label="Chờ duyệt" color="info" size="small" />;
+        default:
+            return <Chip label={`Trạng thái: ${status}`} color="default" size="small" />;
+    }
+}
+// --------------------------------------------------------------------------
+
 
 const ProductDetailPage: React.FC = () => {
     const { postId } = useParams<{ postId: string }>(); 
@@ -123,15 +144,15 @@ const ProductDetailPage: React.FC = () => {
 
     const [product, setProduct] = useState<ProductDetail | null>(null); 
     const [loading, setLoading] = useState(true);
+    // error: Chỉ dùng cho lỗi API (Không tìm thấy ID, Server lỗi)
     const [error, setError] = useState<string | null>(null); 
-    const [isActionLoading, setIsActionLoading] = useState(false); // Thêm state loading cho nút action
+    // State để lưu thông điệp trạng thái (SoldOut/Suspended)
+    const [unavailableMessage, setUnavailableMessage] = useState<string | null>(null); 
+    const [isActionLoading, setIsActionLoading] = useState(false);
 
     const [showPdfViewer, setShowPdfViewer] = useState(false);
     const [openImageModal, setOpenImageModal] = useState(false);
-    // Thêm trạng thái để xử lý thanh toán
-    const [processingOrder, setProcessingOrder] = useState(false);
-
-    // Lấy ID người dùng từ localStorage
+    
     const buyerId = getCurrentUserId();
     
     // --- GỌI API VÀ XỬ LÝ DATA ---
@@ -139,31 +160,37 @@ const ProductDetailPage: React.FC = () => {
         const fetchProduct = async () => {
             setLoading(true);
             setError(null);
+            setUnavailableMessage(null);
             const idNumber = parseInt(postId || '0');
 
             if (idNumber > 0) {
                 try {
-                    // Giả lập lấy dữ liệu từ API
                     const fetchedProductData: ProductData = await getProductById(idNumber);
-                    const uiData = getFakeUIData(idNumber);
-                    const buyerId = getCurrentUserId();
+                    //const uiData = getFakeUIData(idNumber);
+                    
+                    // ✅ BƯỚC 1: LUÔN set product data nếu fetch thành công (để hiển thị thông tin)
+                    const productDetail: ProductDetail = {
+                        ...fetchedProductData,
+                        //...uiData, 
+                        buyerId
+                    } as ProductDetail;
 
-                    // Chỉ hiển thị tin đăng đang 'Available' cho khách
+                    setProduct(productDetail); 
+                    
+                    // ✅ BƯỚC 2: KIỂM TRA trạng thái và set thông báo vô hiệu hóa action
                     if (fetchedProductData.statusProduct !== ProductStatusValue.Available) {
-                        setError(`Tin đăng ${postId} đã bị gỡ, đã bán, hoặc đang chờ duyệt.`);
-                        setProduct(null);
-                    } else {
-                        setProduct({
-                            ...fetchedProductData,
-                            ...uiData, 
-                            buyerId
-                        } as ProductDetail);
-                    }
-
+                        const message = getUnavailableStatusMessage(
+                            fetchedProductData.statusProduct, 
+                            postId
+                        );
+                        setUnavailableMessage(message);
+                    } 
+                    
                 } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định.';
+                    // Chỉ set Error và setProduct(null) khi lỗi fetch API/ID không hợp lệ
                     setError(`Không thể tải chi tiết tin đăng: ${errorMessage}`);
-                    setProduct(null);
+                    setProduct(null); 
                 }
             } else {
                 setError(`ID Tin đăng không hợp lệ: ${postId}`);
@@ -193,49 +220,35 @@ const ProductDetailPage: React.FC = () => {
         }
     }
     
-    // --- ✅ HÀM XỬ LÝ HÀNH ĐỘNG ĐẤU GIÁ (ASYNC) ---
+    // Hàm xử lý Đấu giá (Omitted for brevity, assumed correct)
     const handleBidAction = async () => {
         if (!product) return;
-        
         setIsActionLoading(true);
-
         try {
-            // BƯỚC 1: Gọi hàm searchAuction với productId
             const searchResults: AuctionDetailData[] = await searchAuction(
                 null, null, null, null, null, null, null, null, null, null, null, null, 
                 product.productId, 
                 'newest', 1, 10
             );
 
-            // Lọc để chỉ lấy các phiên đấu giá đang Active (1) hoặc Pending (0)
             const activeAuction = searchResults.find(
-                 // Giả định trường status trong AuctionDetailData là 'status'
                  (auction: any) => auction.status === 1 || auction.status === 0
             );
             
             if (activeAuction && activeAuction.auctionId) {
-                // BƯỚC 2A: Tìm thấy Auction đang hoạt động/chờ duyệt
                 const auctionId = activeAuction.auctionId; 
-                
                 console.log(`Tìm thấy Auction ID: ${auctionId}. Chuyển đến trang chi tiết đấu giá.`);
-                navigate(`/detail-auction/${auctionId}`);
-                
+                navigate(`/detail-auction/${auctionId}/${product.sellerId}`);
             } else {
-                // BƯỚC 2B: Không tìm thấy Auction Active/Pending
-                console.log("Không tìm thấy Auction đang hoạt động. Kiểm tra phiên đã kết thúc.");
-                
                 const latestAuction = searchResults[0]; 
-                
                 if (latestAuction && latestAuction.auctionId) {
-                     // Nếu có phiên cũ, chuyển đến xem phiên đã kết thúc
                      alert(`Phiên đấu giá đã kết thúc. Chuyển đến xem kết quả: ${latestAuction.auctionId}`);
-                     navigate(`/detail-auction/${latestAuction.auctionId}`);
+                     navigate(`/detail-auction/${latestAuction.auctionId}/${product.sellerId}`);
                 } else {
-                     // Nếu không có bất kỳ phiên đấu giá nào được tìm thấy
-                     alert(`Tin đăng này chưa có phiên đấu giá nào. Vui lòng liên hệ người bán.`);
+                     alert(`Sản phẩm chưa có phiên đấu giá nào. Tạo phiên đấu giá mới.`);
+                     navigate(`/create-auction/${product.productId}/${product.sellerId}`)
                 }
             }
-
         } catch (err) {
             console.error("Lỗi khi tìm kiếm hoặc điều hướng đấu giá:", err);
             alert("Lỗi kiểm tra trạng thái đấu giá. Vui lòng thử lại.");
@@ -244,16 +257,15 @@ const ProductDetailPage: React.FC = () => {
         }
     };
 
-    // Hàm xử lý Mua hàng/Đấu giá (Bao gồm logic check SaleMethod)
+    // Hàm xử lý Mua hàng/Đấu giá 
     const handleAction = () => {
-        if (!product) return;
+        // ✅ CHỈ CHO PHÉP ACTION KHI STATUS LÀ AVAILABLE
+        if (!product || product.statusProduct !== ProductStatusValue.Available) return;
         
         if (product.methodSale === SaleMethodValue.Auction) {
-            // Xử lý Đấu giá
             handleBidAction();
         } else {
-            // Nếu là mua ngay: chuyển sang màn hình chi tiết hóa đơn
-            navigate(`/invoice-detail/${product.productId}`, {
+            navigate(`/invoice-detail/${product.productId}/${product.sellerId}`, {
                 state: {
                     productId: product.productId,
                     title: product.title,
@@ -279,14 +291,15 @@ const ProductDetailPage: React.FC = () => {
         );
     }
 
-    if (error || !product) {
+    // Hiển thị lỗi chỉ khi KHÔNG CÓ DỮ LIỆU SẢN PHẨM (Lỗi fetch API)
+    if (error && !product) {
         const displayId = postId || 'N/A';
         return (
-            <Alert severity="error">
+            <Alert severity="error" sx={{ m: 3 }}>
                 <Stack direction="row" spacing={1} alignItems="center">
                     <Typography fontWeight="bold">Lỗi:</Typography>
                     <Chip label={displayId} color="error" size="small" variant="outlined" />
-                    <Typography>{error || 'Không tìm thấy tin đăng.'}</Typography>
+                    <Typography dangerouslySetInnerHTML={{ __html: error || 'Không tìm thấy tin đăng.' }} />
                 </Stack>
                 <Button variant="contained" onClick={() => navigate('/')} sx={{ mt: 2 }}>
                     <HomeIcon sx={{ mr: 1 }}/> Về Trang chủ
@@ -294,11 +307,15 @@ const ProductDetailPage: React.FC = () => {
             </Alert>
         );
     }
+    
+    if (!product) return null;
 
-    // --- Breadcrumbs logic MỚI ---
+    // --- LOGIC HIỂN THỊ ---
     const categoryInfo = getCategoryLinkInfo(product.productType ?? -1);
     const CategoryLinkIcon = categoryInfo.icon;
-    
+    // FLAG QUAN TRỌNG: Kiểm tra trạng thái để vô hiệu hóa nút
+    const isActionAvailable = product.statusProduct === ProductStatusValue.Available;
+
     return (
         <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
             {/* Breadcrumbs */}
@@ -307,7 +324,6 @@ const ProductDetailPage: React.FC = () => {
                     <HomeIcon sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} /> Trang chủ
                 </Link>
                 {' / '}
-                {/* ✅ CẬP NHẬT LINK DANH MỤC */}
                 <Link to={categoryInfo.path} style={{ textDecoration: 'none', color: theme.palette.text.secondary }}>
                     <CategoryLinkIcon sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} /> {categoryInfo.name}
                 </Link>
@@ -317,9 +333,8 @@ const ProductDetailPage: React.FC = () => {
                 </MuiLink>
             </Typography>
             
-            {/* Tiêu đề chính (Thêm Icon) */}
+            {/* Tiêu đề chính */}
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 4 }}>
-                {/* ✅ THÊM ICON TRƯỚC TIÊU ĐỀ */}
                 <AssignmentIcon color="primary" sx={{ fontSize: '2.5rem' }} /> 
                 <Typography variant="h4" fontWeight="bold">
                     {product.title}
@@ -332,31 +347,20 @@ const ProductDetailPage: React.FC = () => {
                 <Card sx={{ width: { xs: '100%', md: '65%' }, p: 1 }}>
                     <CardContent>
                         
-                        {/* HÌNH ẢNH LỚN HƠN & TÊN SẢN PHẨM & GIÁ & LOẠI TIN */}
+                        {/* HÌNH ẢNH & TÊN SẢN PHẨM & GIÁ & LOẠI TIN */}
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ xs: 'flex-start', sm: 'center' }} sx={{ mb: 3 }}>
-                            
-                            {/* ✅ HÌNH ẢNH LỚN HƠN (200x200) */}
+                            {/* HÌNH ẢNH */}
                             <Box 
                                 sx={{ 
-                                    width: 200, 
-                                    height: 200, 
-                                    minWidth: 200,
-                                    bgcolor: theme.palette.grey[200], 
-                                    borderRadius: '8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    overflow: 'hidden',
-                                    cursor: product.imageUrl ? 'zoom-in' : 'default',
+                                    width: 200, height: 200, minWidth: 200,
+                                    bgcolor: theme.palette.grey[200], borderRadius: '8px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    overflow: 'hidden', cursor: product.imageUrl ? 'zoom-in' : 'default',
                                 }}
                                 onClick={handleOpenImageModal}
                             >
                                 {product.imageUrl ? (
-                                    <img 
-                                        src={product.imageUrl} 
-                                        alt={product.productName} 
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                    />
+                                    <img src={product.imageUrl} alt={product.productName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : (
                                     <Typography variant="caption" color="text.secondary">No Image</Typography>
                                 )}
@@ -364,11 +368,9 @@ const ProductDetailPage: React.FC = () => {
 
                             {/* Tên Sản phẩm, Giá, Loại tin */}
                             <Stack spacing={1}>
-                                {/* ✅ THÊM TÊN SẢN PHẨM Ở TRÊN GIÁ TIỀN */}
                                 <Typography variant="h6" fontWeight="bold" color="text.primary">
                                     {product.productName}
                                 </Typography>
-                                
                                 <Typography variant="caption" color="text.secondary">Giá bán:</Typography>
                                 <Typography variant="h5" color="error" fontWeight="bold">
                                     {product.price.toLocaleString('vi-VN')} VND
@@ -377,7 +379,8 @@ const ProductDetailPage: React.FC = () => {
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
                                     {getSaleMethodChip(product.methodSale)}
                                     {product.isVerified && <Chip label="Đã kiểm định" color="success" icon={<VerifiedIcon style={{fontSize: 16}}/>} size="small" />}
-                                    {product.statusProduct === ProductStatusValue.Available && <Chip label="Còn hàng" color="success" size="small" />}
+                                    {/* HIỂN THỊ CHIP TRẠNG THÁI HIỆN TẠI */}
+                                    {getStatusChip(product.statusProduct)} 
                                 </Stack>
                             </Stack>
                         </Stack>
@@ -394,9 +397,7 @@ const ProductDetailPage: React.FC = () => {
                                 <ListItemIcon><PersonIcon color="primary" /></ListItemIcon>
                                 <ListItemText 
                                     primary="Người đăng" 
-                                    secondary={<Box component="span" sx={{ fontWeight: 'bold' }}>
-                                            {product.author || `User ID: ${product.sellerId}`} 
-                                        </Box>}
+                                    secondary={<Box component="span" sx={{ fontWeight: 'bold' }}>{product.author || `User ID: ${product.sellerId}`}</Box>}
                                 />
                             </ListItem>
                             <ListItem disableGutters>
@@ -420,65 +421,69 @@ const ProductDetailPage: React.FC = () => {
                         </Paper>
 
                         {/* TÀI LIỆU ĐÍNH KÈM */}
-                        <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>Tài liệu đính kèm:</Typography>
-                        <List disablePadding dense>
-                            <ListItem disableGutters secondaryAction={
-                                <Stack direction="row" spacing={1}>
-                                    {isPdf && (
-                                        <Button 
-                                            variant="outlined" size="small" startIcon={<VisibilityIcon />}
-                                            onClick={() => setShowPdfViewer(!showPdfViewer)}
-                                        >
-                                            {showPdfViewer ? 'Ẩn PDF' : 'Xem PDF'}
-                                        </Button>
-                                    )}
-                                    <Button 
-                                        variant="contained" size="small" startIcon={<DownloadIcon />}
-                                        disabled={!product.fileUrl}
-                                        onClick={() => handleDownloadFile(product.fileUrl, product.title)}
-                                    >
-                                        Tải xuống
-                                    </Button>
-                                </Stack>
-                            }>
-                                <ListItemIcon><AttachFileIcon color="info" /></ListItemIcon>
-                                <ListItemText 
-                                    primary="Tài liệu" 
-                                    secondary={product.fileUrl ? product.fileUrl.split('/').pop() : 'Không có tệp đính kèm'}
-                                />
-                            </ListItem>
-                        </List>
-                        
-                        {/* TRÌNH XEM PDF NHÚNG */}
-                        {showPdfViewer && isPdf && product.fileUrl && (
-                            <Box sx={{ mt: 3, border: `1px solid ${theme.palette.divider}`, borderRadius: '4px', height: 600 }}>
-                                <iframe 
-                                    src={product.fileUrl} 
-                                    title={`PDF Viewer for ${product.productName}`}
-                                    width="100%"
-                                    height="100%"
-                                    style={{ border: 'none' }}
-                                >
-                                    Trình duyệt không hỗ trợ PDF. Vui lòng tải xuống.
-                                </iframe>
-                            </Box>
-                        )}
+                         <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>Tài liệu đính kèm:</Typography>
+                         <List disablePadding dense>
+                             <ListItem disableGutters secondaryAction={
+                                 <Stack direction="row" spacing={1}>
+                                     {isPdf && (
+                                         <Button 
+                                             variant="outlined" size="small" startIcon={<VisibilityIcon />}
+                                             onClick={() => setShowPdfViewer(!showPdfViewer)}
+                                         >
+                                             {showPdfViewer ? 'Ẩn PDF' : 'Xem PDF'}
+                                         </Button>
+                                     )}
+                                     <Button 
+                                         variant="contained" size="small" startIcon={<DownloadIcon />}
+                                         disabled={!product.fileUrl}
+                                         onClick={() => handleDownloadFile(product.fileUrl, product.title)}
+                                     >
+                                         Tải xuống
+                                     </Button>
+                                 </Stack>
+                             }>
+                                 <ListItemIcon><AttachFileIcon color="info" /></ListItemIcon>
+                                 <ListItemText 
+                                     primary="Tài liệu" 
+                                     secondary={product.fileUrl ? product.fileUrl.split('/').pop() : 'Không có tệp đính kèm'}
+                                 />
+                             </ListItem>
+                         </List>
+
+                         {/* TRÌNH XEM PDF NHÚNG */}
+                         {showPdfViewer && isPdf && product.fileUrl && (
+                             <Box sx={{ mt: 3, border: `1px solid ${theme.palette.divider}`, borderRadius: '4px', height: 600 }}>
+                                 <iframe 
+                                     src={product.fileUrl} 
+                                     title={`PDF Viewer for ${product.productName}`}
+                                     width="100%"
+                                     height="100%"
+                                     style={{ border: 'none' }}
+                                 >
+                                     Trình duyệt không hỗ trợ PDF. Vui lòng tải xuống.
+                                 </iframe>
+                             </Box>
+                         )}
                     </CardContent>
                 </Card>
 
                 {/* --- B. ACTION VÀ ĐÁNH GIÁ (35% - STICKY) --- */}
                 <Stack sx={{ 
-                    width: { xs: '100%', md: '35%' },
-                    alignSelf: 'flex-start', 
-                    position: 'sticky', 
-                    top: theme.spacing(10), 
+                    width: { xs: '100%', md: '35%' }, alignSelf: 'flex-start', position: 'sticky', top: theme.spacing(10), 
                 }} spacing={3}>
                     
                     {/* HÀNH ĐỘNG MUA HÀNG/ĐẤU GIÁ */}
                     <Paper sx={{ p: 3, boxShadow: theme.shadows[2], textAlign: 'center' }}>
                         <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                            {product.methodSale === SaleMethodValue.Auction ? 'Tham gia Đấu giá' : 'Mua ngay'}
+                            {product.methodSale === SaleMethodValue.Auction ? 'Tham gia Đấu giá' : 'Mua hàng'}
                         </Typography>
+                        
+                        {/* HIỂN THỊ THÔNG BÁO TRẠNG THÁI KHÔNG KHẢ DỤNG (Nếu có) */}
+                        {!isActionAvailable && unavailableMessage && (
+                            <Alert severity="warning" sx={{ mb: 2 }}>
+                                <Typography dangerouslySetInnerHTML={{ __html: unavailableMessage }} />
+                            </Alert>
+                        )}
                         
                         <Button 
                             startIcon={isActionLoading ? <CircularProgress size={20} color="inherit" /> : (product.methodSale === SaleMethodValue.Auction ? <GavelIcon /> : <ShoppingCartIcon />)} 
@@ -487,14 +492,18 @@ const ProductDetailPage: React.FC = () => {
                             size="large"
                             fullWidth
                             onClick={handleAction}
-                            disabled={isActionLoading} // Vô hiệu hóa khi đang tải
+                            // Vô hiệu hóa khi đang tải HOẶC khi không khả dụng
+                            disabled={isActionLoading || !isActionAvailable} 
                         >
                             {product.methodSale === SaleMethodValue.Auction ? 'Đấu giá ngay' : 'Mua ngay'}
                         </Button>
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                            {product.methodSale === SaleMethodValue.Auction 
-                                ? 'Nhấn để xem/tham gia phiên đấu giá đang hoạt động.' 
-                                : 'Đặt hàng để nhận hàng tận nơi.'}
+                            {isActionAvailable 
+                                ? (product.methodSale === SaleMethodValue.Auction 
+                                    ? 'Nhấn để xem/tham gia phiên đấu giá đang hoạt động.' 
+                                    : 'Đặt hàng để nhận hàng tận nơi.')
+                                : 'Hành động giao dịch đã bị vô hiệu hóa do trạng thái tin đăng.'
+                            }
                         </Typography>
                     </Paper>
 
@@ -505,30 +514,36 @@ const ProductDetailPage: React.FC = () => {
                             <Typography variant="h6" fontWeight="bold">Đánh giá sản phẩm</Typography>
                         </Stack>
                         
-                        {product.count > 0 ? (
-                            <Box>
-                                <Typography variant="h4" fontWeight="bold" color="primary">
-                                    {product.rating.toFixed(1)}/5
-                                </Typography>
-                                <Stack direction="row" spacing={0.5} sx={{ mb: 1 }}>
-                                    {[1, 2, 3, 4, 5].map(i => (
-                                        <StarIcon 
-                                            key={i} 
-                                            color={i <= Math.round(product.rating) ? 'warning' : 'disabled'} 
-                                            fontSize="small"
-                                        />
-                                    ))}
-                                    <Typography variant="body2" color="text.secondary">
-                                        ({product.count} đánh giá)
-                                    </Typography>
-                                </Stack>
-                                <Button size="small" variant="outlined" sx={{ mt: 1 }}>
-                                    Xem tất cả đánh giá
-                                </Button>
-                            </Box>
-                        ) : (
-                            <Alert severity="info" sx={{ p: 1 }}>Chưa có đánh giá nào cho sản phẩm này.</Alert>
-                        )}
+                       {/*product.count > 0 ? ( 
+//                            <Box>
+//                                <Typography variant="h4" fontWeight="bold" color="primary">
+//                                    {product.rating.toFixed(1)}/5
+//                                </Typography>
+//                                <Stack direction="row" spacing={0.5} sx={{ mb: 1 }}>
+//                                    {[1, 2, 3, 4, 5].map(i => (
+//                                        <StarIcon 
+//                                            key={i} 
+//                                            color={i <= Math.round(product.rating) ? 'warning' : 'disabled'} 
+//                                            fontSize="small"
+//                                        />
+//                                    ))}
+//                                    <Typography variant="body2" color="text.secondary">
+ //                                       ({product.count} đánh giá)
+ //                                   </Typography>
+//                                </Stack>
+//                                <Button size="small" variant="outlined" sx={{ mt: 1 }}>
+//                                    Xem tất cả đánh giá
+//                                </Button>
+ //                           </Box>
+//                        ) : (
+//                            <Alert severity="info" sx={{ p: 1 }}>Chưa có đánh giá nào cho sản phẩm này.</Alert>
+//                        )}*/}
+                        <Button size="small" variant="outlined" sx={{ mt: 1 }}
+                        onClick={() => 
+                            navigate(`/view-rates?productId=${product.sellerId}`)
+                        }>
+                                      Xem tất cả đánh giá
+                        </Button>
                     </Paper>
 
                 </Stack>
@@ -552,13 +567,7 @@ const ProductDetailPage: React.FC = () => {
                     <IconButton
                         aria-label="close"
                         onClick={handleCloseImageModal}
-                        sx={{
-                            position: 'absolute',
-                            right: 8,
-                            top: 8,
-                            color: 'white',
-                            zIndex: 10,
-                        }}
+                        sx={{ position: 'absolute', right: 8, top: 8, color: 'white', zIndex: 10, }}
                     >
                         <CloseIcon />
                     </IconButton>
@@ -566,11 +575,7 @@ const ProductDetailPage: React.FC = () => {
                         <img 
                             src={product.imageUrl} 
                             alt={product.productName} 
-                            style={{ 
-                                maxWidth: '100%', 
-                                maxHeight: '100%', 
-                                objectFit: 'contain' 
-                            }}
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                         />
                     </DialogContent>
                 </Dialog>

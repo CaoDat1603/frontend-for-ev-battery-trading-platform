@@ -34,9 +34,10 @@ import {
 // --- 1. CONSTANTS & HELPERS ---
 
 const PRODUCT_TYPE_OPTIONS: { value: number; label: string }[] = [
-  { value: 1, label: "Xe điện (EV)" },
-  { value: 2, label: "Pin / Battery" },
-  { value: 3, label: "Phụ kiện khác" },
+  { value: 1, label: "Pin xe điện" },
+  { value: 2, label: "Xe ô tô điện" },
+  { value: 3, label: "Xe máy điện" },
+  { value: 4, label: "Bid" },
 ];
 
 const getProductTypeLabel = (type: number): string => {

@@ -35,7 +35,7 @@ const SalesChart: React.FC = () => {
                 }}
             >
                 <Typography variant="body2" color="text.secondary">
-                    [Placeholder cho Biểu đồ Cột (Ví dụ: dùng Recharts BarChart)]
+
                 </Typography>
             </Box>
             

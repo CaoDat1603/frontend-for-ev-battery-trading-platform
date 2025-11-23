@@ -16,10 +16,12 @@ const navItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' }, // Trang chủ
     { text: 'User Management', icon: <GroupIcon />, path: '/users' },
     { text: 'Content Moderation', icon: <VisibilityIcon />, path: '/content' },
+    { text: 'Auctions', icon: <GavelIcon />, path: '/auctions' },
     { text: 'Transactions', icon: <AttachMoneyIcon />, path: '/transactions' },
     { text: 'Complaints', icon: <ReportIcon />, path: '/complaints' },
     { text: 'Finance Settings', icon: <PolicyIcon />, path: '/finance' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+    
 ];
 
 interface SidebarProps {

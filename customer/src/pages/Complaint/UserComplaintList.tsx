@@ -30,12 +30,7 @@ const LoadingSpinner: React.FC = () => (
             `}
         </style>
     </div>
-);
-
-// Custom hook để lấy query parameters (Giữ nguyên)
-const useQuery = () => {
-    return new URLSearchParams(useLocation().search);
-}
+)
 
 // Logic màu cho trạng thái (Đơn giản hóa)
 const getStatusColor = (status: string): string => {
@@ -52,8 +47,6 @@ const getStatusColor = (status: string): string => {
 }
 
 const UserComplaintList: React.FC = () => {
-    const query = useQuery(); 
-    const userId = query.get("userId"); 
 
     // Các biến State (Giữ nguyên)
     const [complaints, setComplaints] = React.useState<ComplaintResponse[] | null>(null); 
@@ -62,21 +55,11 @@ const UserComplaintList: React.FC = () => {
 
     // useEffect (Giữ nguyên logic)
     React.useEffect(() => {
-        if (!userId) {
-            setError("Thiếu tham số 'userId' trong URL.");
-            setLoading(false);
-            return;
-        }
 
         const fetchComplaints = async () => {
             try {
-                const id = parseInt(userId, 10);
-                if (isNaN(id)) {
-                    throw new Error("ID người dùng không hợp lệ.");
-                }
-                
                 // GỌI SERVICE (Giữ nguyên)
-                const data = await ComplaintService.getByComplaintant(id);
+                const data = await ComplaintService.getByComplaintant(1);
                 
                 // Gán trực tiếp mảng nhận được vào state complaints (Giữ nguyên)
                 setComplaints(data); 
@@ -91,7 +74,7 @@ const UserComplaintList: React.FC = () => {
         };
 
         fetchComplaints();
-    }, [userId]);
+    },[]);
 
     // Các điều kiện render (Giữ nguyên)
     if (loading) return <LoadingSpinner />;
@@ -107,7 +90,7 @@ const UserComplaintList: React.FC = () => {
     if (!complaints || complaints.length === 0) {
         return (
             <div style={{ padding: "20px", margin: "20px auto", maxWidth: "800px", border: "1px solid #007bff", color: "#004085", backgroundColor: "#cce5ff", borderRadius: "4px", textAlign: "center" }}>
-                <p style={{ fontWeight: "bold", margin: 0 }}>Không có khiếu nại nào từ người dùng ID: {userId}.</p>
+                <p style={{ fontWeight: "bold", margin: 0 }}>Không có khiếu nại nào từ bạn.</p>
             </div>
         );
     }
@@ -122,7 +105,7 @@ const UserComplaintList: React.FC = () => {
                 color: "#333",
                 fontWeight: "700"
             }}>
-                Danh Sách Khiếu Nại của Người Dùng ID: {userId} 
+                Danh Sách Khiếu Nại của Bạn 
                 <span style={{ 
                     fontSize: "0.8em", 
                     marginLeft: "10px", 

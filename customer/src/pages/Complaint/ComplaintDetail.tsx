@@ -10,6 +10,13 @@ interface StatusStyle {
     label: string;
 }
 
+const ReasonComplaint = {
+    WRONG_ITEM: "WRONG_ITEM",
+    LATE_DELIV: "LATE_DELIV",
+    CANCLE_PUR: "CANCLE_PUR",
+    ERROR_PAYMENT: "ERROR_PAYMENT",
+} as const;
+
 const getStatusStyle = (status: string): StatusStyle => {
     switch (status) {
         case 'RESOLVED':
@@ -22,6 +29,8 @@ const getStatusStyle = (status: string): StatusStyle => {
             return { backgroundColor: '#f0f0f0', color: '#6c757d', label: 'KHÔNG XÁC ĐỊNH' };
     }
 }
+
+
 
 // Loading Spinner (Đã chỉnh style)
 const LoadingSpinner: React.FC = () => (
@@ -49,6 +58,22 @@ const LoadingSpinner: React.FC = () => (
         </style>
     </div>
 );
+
+// Hàm chuyển đổi key enum sang chuỗi thân thiện hơn (Giữ nguyên)
+const formatReason = (reason: string): string => {
+    switch (reason) {
+        case ReasonComplaint.WRONG_ITEM:
+            return "Sai sản phẩm/món hàng";
+        case ReasonComplaint.LATE_DELIV:
+            return "Giao hàng trễ";
+        case ReasonComplaint.CANCLE_PUR:
+            return "Hủy đơn hàng không mong muốn";
+        case ReasonComplaint.ERROR_PAYMENT:
+            return "Lỗi thanh toán";
+        default:
+            return reason;
+    }
+}
 
 
 const ComplaintDetail: React.FC = () => {
@@ -140,9 +165,9 @@ const ComplaintDetail: React.FC = () => {
                     margin: "0 0 15px 0", 
                     fontSize: "1.1em", 
                     fontWeight: "600",
-                    color: '#333'
+                    color: '#fb0202ff'
                 }}>
-                    {complaint.reasonComplaint}
+                    {formatReason(complaint.reasonComplaint)}
                 </p>
                 
                 <h3 style={{ margin: "15px 0 10px 0", color: "#555" }}>Mô tả chi tiết</h3>
