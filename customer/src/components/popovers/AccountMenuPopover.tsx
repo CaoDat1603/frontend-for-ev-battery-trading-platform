@@ -34,7 +34,7 @@ interface MenuLink {
 
 const utilityLinks: MenuLink[] = [
     { text: 'Tin đăng đã lưu', icon: FavoriteBorderIcon, path: '/manage-wishlists' },
-    { text: 'Lịch sử xem tin', icon: HistoryIcon, path: '/my-purchases' },
+    { text: 'Lịch sử', icon: HistoryIcon, path: '/my-purchases' },
 ];
 
 

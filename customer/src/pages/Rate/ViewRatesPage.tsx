@@ -200,10 +200,10 @@ const ViewRatesPage: React.FC = () => {
     const handleCreateRate = () => {
         if (urlUserId) {
             // Chuyển hướng đến trang tạo đánh giá cho User
-            navigate(`/create-rate-form?userId=${urlUserId}`);
+            navigate(`/create-user-rate?userId=${urlUserId}`);
         } else if (urlProductId) {
             // Chuyển hướng đến trang tạo đánh giá cho Product
-            navigate(`/create-rate-form?productId=${urlProductId}`);
+            navigate(`/create-product-rate?productId=${urlProductId}`);
         }
     };
 

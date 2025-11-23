@@ -131,7 +131,7 @@ const CreateAuctionPage: React.FC = () => {
         // Lấy URL hiện tại để trang Invoice biết đường quay lại
         const currentPath = window.location.pathname + window.location.search;
 
-        navigate(`/invoice-detail/${idNumber}`, {
+        navigate(`/invoice-detail/${idNumber}/${auction.productId}`, {
             state: {
                 productId: auction.productId,
                 title: `Đặt cọc phiên đấu giá: ${auction.productTitle}`,
