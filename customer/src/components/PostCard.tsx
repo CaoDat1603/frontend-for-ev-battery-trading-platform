@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react'; // ✅ Thêm useState, useEffect
 import { useNavigate } from 'react-router-dom';
 import { 
     Box, Typography, Card, CardMedia, CardContent, 
@@ -11,19 +11,22 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StorefrontIcon from '@mui/icons-material/Storefront'; 
 import GavelIcon from '@mui/icons-material/Gavel'; 
 import VerifiedIcon from '@mui/icons-material/Verified';
-import PersonIcon from '@mui/icons-material/Person'; // ✅ ICON MỚI: Người bán
+import PersonIcon from '@mui/icons-material/Person'; 
 import { useTheme } from '@mui/material/styles';
 
 // ✅ Import Wishlist Context
 import { useWishlist } from '../context/WishlistContext'; 
-import { type ProductData } from '../services/productService'; // Import ProductData nếu cần
 
-// ✅ IMPORT DỊCH VỤ ĐẤU GIÁ VÀ KIỂU DỮ LIỆU
+// ✅ IMPORT DỊCH VỤ ĐẤU GIÁ VÀ NGƯỜI DÙNG
 import { searchAuction, type AuctionDetailData } from '../services/auctionService'; 
+// Giả định bạn import UserService từ một file dịch vụ
+// 🚨 Bạn cần chắc chắn đường dẫn này đúng trong project của bạn
+import { UserService } from '../services/userService'; // ✅ Import UserService
+
 type AuctionStatus = 0 | 1 | 2 | 3 | 4; 
 
 
-// --- Kiểu dữ liệu cho Tin đăng ---
+// --- Kiểu dữ liệu cho Tin đăng (Giữ nguyên) ---
 export interface PostData {
     productId: number;
     sellerId: number;
@@ -43,7 +46,7 @@ interface PostCardProps {
     post: PostData;
 }
 
-// Helper function để định dạng tiền tệ VNĐ
+// Helper functions (Giữ nguyên)
 const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('vi-VN', {
         style: 'currency',
@@ -51,7 +54,6 @@ const formatCurrency = (amount: number): string => {
     }).format(amount);
 };
 
-// Helper function để tính thời gian đã trôi qua
 const timeAgo = (dateString: string): string => {
     const now = new Date();
     const past = new Date(dateString);
@@ -72,18 +74,42 @@ const timeAgo = (dateString: string): string => {
 export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     const theme = useTheme();
     const navigate = useNavigate();
-
-    // ✅ Lấy 'savedPosts' và 'toggleWishlistItem' từ Context
     const { savedPosts, toggleWishlistItem } = useWishlist(); 
-
-    // ✅ Logic kiểm tra: sử dụng 'savedPosts' và 'post.productId'
+    
+    // ✅ STATE MỚI: Lưu trữ tên người bán
+    const [sellerName, setSellerName] = useState<string>('Đang tải...'); 
+    
     const isSaved = savedPosts.some(item => item.id === post.productId);
-
     const formattedPrice = useMemo(() => formatCurrency(post.price), [post.price]);
     const displayTimeAgo = useMemo(() => timeAgo(post.createdAt), [post.createdAt]);
     const isAuction = post.saleMethod === 1;
 
-    // --- CÁC HÀM XỬ LÝ CHUYỂN TRANG ---
+    // ✅ EFFECT MỚI: Lấy tên người bán khi component mount
+    useEffect(() => {
+        const fetchSellerName = async () => {
+            try {
+                // Kiểm tra UserService có sẵn hàm getUserById và post.sellerId hợp lệ
+                if (UserService && UserService.getUserById && post.sellerId) {
+                    const userData = await UserService.getUserById(post.sellerId);
+                    
+                    // Giả định response data có trường 'firstName' và 'lastName'
+                    const name = `${userData.fullname || ''}`.trim();
+                    
+                    // Nếu tên trống, hiển thị ID hoặc một tên mặc định
+                    setSellerName(name || `ID ${post.sellerId}`); 
+                } else {
+                    setSellerName(`ID ${post.sellerId}`); 
+                }
+            } catch (error) {
+                console.error(`Lỗi khi lấy tên người bán (ID: ${post.sellerId}):`, error);
+                setSellerName(`ID ${post.sellerId}`); // Hiển thị ID nếu lỗi
+            }
+        };
+
+        fetchSellerName();
+    }, [post.sellerId]); // Chạy lại khi sellerId thay đổi
+
+    // --- CÁC HÀM XỬ LÝ CHUYỂN TRANG (Giữ nguyên) ---
 
     const handleCardClick = () => {
         navigate(`/content/${post.productId}`);
@@ -91,7 +117,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
     
     const handleToggleFavorite = (e: React.MouseEvent) => {
         e.stopPropagation(); 
-        
         const itemToToggle = { productId: post.productId };
         toggleWishlistItem(itemToToggle);
     };
@@ -110,43 +135,36 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
         });
     };
 
-    // ✅ HÀM XỬ LÝ NHẤP VÀO SELLER ID
+    // HÀM XỬ LÝ NHẤP VÀO SELLER ID (Giữ nguyên logic)
     const handleSellerClick = (e: React.MouseEvent) => {
         e.stopPropagation(); 
-        // Điều hướng đến trang tìm kiếm và truyền sellerId vào query params
+        // Điều hướng đến trang xem hồ sơ người dùng
         navigate(`/view-user/${post.sellerId}`);
     };
 
-    // ✅ HÀM XỬ LÝ ĐẤU GIÁ (ASYNC)
+    // HÀM XỬ LÝ ĐẤU GIÁ (Giữ nguyên logic)
     const handleBid = async (e: React.MouseEvent) => {
         e.stopPropagation();
         
         try {
-            // Gọi hàm searchAuction với productId để tìm phiên đấu giá
             const searchResults: AuctionDetailData[] = await searchAuction(
-                // Chỉ truyền productId, các tham số khác để null
                 null, null, null, null, null, null, null, null, null, null, null, null, 
                 post.productId, 
                 'newest', 1, 10
             );
 
             if (searchResults && searchResults.length > 0) {
-                // Tìm thấy Auction đang hoạt động/chờ duyệt
                 const existingAuction = searchResults[0]; 
                 const auctionId = existingAuction.auctionId; 
                 
                 if (auctionId) {
-                    console.log(`Tìm thấy Auction ID: ${auctionId}. Chuyển đến trang chi tiết.`);
                     navigate(`/detail-auction/${auctionId}/${post.sellerId}`);
                 } else {
                     throw new Error("Dữ liệu đấu giá không hợp lệ (Missing Auction ID).");
                 }
             } else {
-                // Không tìm thấy Auction: Điều hướng đến trang tạo đấu giá mới
-                console.log("Không tìm thấy Auction. Chuyển đến trang tạo mới.");
                 navigate(`/create-auction/${post.productId}/${post.sellerId}`);
             }
-
         } catch (error) {
             console.error("Lỗi khi tìm kiếm hoặc điều hướng đấu giá:", error);
             alert("Lỗi kiểm tra trạng thái đấu giá. Vui lòng thử lại.");
@@ -210,7 +228,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     />
                 )}
 
-                {/* KHỐI ICON FAVORITE ĐÃ CẬP NHẬT */}
+                {/* KHỐI ICON FAVORITE */}
                 <IconButton
                     size="small"
                     onClick={handleToggleFavorite}
@@ -231,7 +249,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             {/* 2. Phần Nội dung (Content) */}
             <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                 
-                {/* Giá */}
+                {/* Giá, Tiêu đề, Chi tiết, Vị trí (Giữ nguyên) */}
                 <Typography 
                     variant="h6" 
                     color="error.main" 
@@ -241,7 +259,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     {formattedPrice}
                 </Typography>
 
-                {/* Tiêu đề */}
                 <Typography 
                     gutterBottom 
                     variant="subtitle1" 
@@ -255,7 +272,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     {post.title}
                 </Typography>
                 
-                {/* Chi tiết */}
                 <Typography 
                     variant="body2" color="text.secondary"
                     sx={{ 
@@ -265,7 +281,6 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     {post.description || 'Không có mô tả chi tiết.'}
                 </Typography>
 
-                {/* Vị trí */}
                 <Box sx={{ 
                     display: 'flex', alignItems: 'center', color: 'text.secondary', mb: 1,
                     whiteSpace: 'nowrap', overflow: 'hidden', 
@@ -276,7 +291,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     </Typography>
                 </Box>
 
-                {/* KHỐI THÔNG TIN NGƯỜI BÁN CÓ THỂ NHẤP VÀO */}
+                {/* ✅ KHỐI THÔNG TIN NGƯỜI BÁN CÓ THỂ NHẤP VÀO (Đã thay thế ID bằng Name) */}
                 <Box 
                     sx={{ 
                         display: 'flex', alignItems: 'center', mb: 1,
@@ -292,8 +307,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                         color="text.primary"
                         sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
                     >
-                        Tác giả: **ID {post.sellerId}**
-                    </Typography>
+                        Tác giả: **{sellerName}** </Typography>
                 </Box>
 
                 {/* KHỐI BUTTON */}

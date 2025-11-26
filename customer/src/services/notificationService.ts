@@ -24,7 +24,8 @@ export const NotificationService = {
 
             return res.data;
         } catch (err: any) {
-            throw new Error(err.response?.data?.message || "Không thể tải danh sách thông báo.");
+            console.log(err.response?.data?.message);
+            throw new Error("Không thể tải danh sách thông báo.");
         }
     },
 
@@ -46,7 +47,8 @@ export const NotificationService = {
                 }
             );
         } catch (err: any) {
-            throw new Error(err.response?.data?.message || "Không thể đánh dấu đã đọc.");
+            console.log(err.response?.data?.message)
+            throw new Error("Không thể đánh dấu đã đọc.");
         }
     },
 

@@ -24,6 +24,7 @@ import {
   type FeeSettings as ApiFeeSettings,
 } from "../services/orderService";
 import { PaymentService } from "../services/paymentService";
+import { UserService } from '../services/userService';
 
 interface InvoiceLocationState {
   productId: number;
@@ -90,6 +91,9 @@ const InvoiceDetailPage: React.FC = () => {
   const [feeLoading, setFeeLoading] = useState(false);
   const [feeError, setFeeError] = useState<string | null>(null);
 
+  const [sellerName, setSellerName] = useState<string>('Đang tải...'); 
+  const [sellerLoading, setSellerLoading] = useState<boolean>(false);
+
   const product = useMemo(() => {
     if (state) return state;
     if (!postId) return null;
@@ -122,6 +126,34 @@ const InvoiceDetailPage: React.FC = () => {
 
     void fetchFeeSettings();
   }, [product]);
+
+  useEffect(() => {
+    // Chỉ chạy khi product đã được xác định và có sellerId hợp lệ
+    if (product && product.sellerId) {
+        setSellerLoading(true);
+        const fetchSellerName = async (sellerId: number) => {
+            try {
+                // Giả định UserService.getUserById trả về đối tượng có trường 'fullname'
+                const userData = await UserService.getUserById(sellerId);
+                const name = `${userData.fullname || ''}`.trim();
+                
+                // Nếu tên trống, hiển thị ID
+                setSellerName(name || `ID Người bán: ${sellerId}`); 
+            } catch (error) {
+                console.error(`Lỗi khi lấy tên người bán (ID: ${sellerId}):`, error);
+                setSellerName(`ID Người bán: ${sellerId} (Lỗi tải tên)`); // Hiển thị ID và thông báo lỗi nhỏ
+            } finally {
+                setSellerLoading(false);
+            }
+        };
+        
+        void fetchSellerName(product.sellerId);
+    } else if (product) {
+         // Trường hợp product đã load nhưng không có sellerId (ID = 0 hoặc null)
+         setSellerName('Người bán không xác định'); 
+         setSellerLoading(false);
+    }
+  }, [product?.sellerId]);
 
   if (!product) {
     return (
@@ -278,9 +310,14 @@ const InvoiceDetailPage: React.FC = () => {
               <Typography variant="body2" color="text.secondary">
                 Người bán
               </Typography>
-              <Typography variant="subtitle1" fontWeight="bold">
-                Seller ID: {product.sellerId}
-              </Typography>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {/* SỬ DỤNG sellerName ĐÃ FETCH */}
+                    {sellerName} 
+                  </Typography>
+                  {/* HIỂN THỊ ICON LOADING NHỎ NẾU CẦN */}
+                  {sellerLoading && <CircularProgress size={12} color="inherit" />}
+              </Stack>
             </Box>
           </Stack>
 

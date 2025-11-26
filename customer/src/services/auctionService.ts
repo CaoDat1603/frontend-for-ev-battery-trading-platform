@@ -96,14 +96,15 @@ export async function getAuctionDetail(auctionId: number): Promise<AuctionDetail
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch auction detail. Status: ${response.status}. Error: ${errorText}`);
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
+            throw new Error(`Failed to fetch auction detail. `);
         }
 
         return await response.json() as AuctionDetailData;
 
     } catch (error) {
         console.error("Error in getAuctionDetail:", error);
-        throw new Error(`Could not connect to the Auction API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the Auction API`);
     }
 }
 
@@ -161,21 +162,23 @@ export async function countAuction(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch product count. Status: ${response.status}. Error: ${errorText}`);
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
+            throw new Error(`Failed to fetch product count.`);
         }
         
         const resultText = await response.text();
         const count = parseInt(resultText.trim(), 10);
         
         if (isNaN(count)) {
-            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+            console.error(resultText);
+            throw new Error(`Invalid response format from count "`);
         }
         
         return count;
 
     } catch (error) {
         console.error("Error in countProduct:", error);
-        throw new Error(`Could not connect to the product count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the product count `);
     }
 }
 
@@ -241,7 +244,8 @@ export async function searchAuction(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch auction. Status: ${response.status}. Error: ${errorText}`);
+            console.error(`Status: ${response.status}. Error: ${errorText}`)
+            throw new Error(`Failed to fetch auction. `);
         }
 
         const result = await response.json(); 
@@ -252,7 +256,7 @@ export async function searchAuction(
         }));
     } catch (error) {
         console.error("Error in searchAuciton:", error);
-        throw new Error(`Could not connect to the Auction API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the Auction `);
     }
 };
 
@@ -291,7 +295,7 @@ export async function createAuctionApi(
                 const result = await response.json();
                 
                 return {
-                    auctionId: result.auctionId || result.wishlistId, 
+                    auctionId: result.auctionId, 
                     message: 'Auction created successfully.'
                 };
             }
@@ -299,16 +303,15 @@ export async function createAuctionApi(
             
         } else {
             const errorText = await response.text();
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
             throw new Error(
-                `Failed to create Auction. Status: ${response.status}. Error: ${errorText}`
+                `Failed to create Auction.`
             );
         }
     } catch (error) {
         console.error('Error in createAuctionApi:', error);
         throw new Error(
-            `Network or processing error when creating Auction: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when creating Auction`
         );
     }
 }
@@ -331,21 +334,21 @@ export async function updateAuctionStatusApi(
 
         if (response.ok) {
             const result = await response.json();
+            console.log(result.message);
             return {
-                message: result.message || 'Product status Auction successfully.',
+                message: 'Product status Auction successfully.',
             };
         } else {
             const errorText = await response.text();
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
             throw new Error(
-                `Failed to update Auction status. Status: ${response.status}. Response: ${errorText}`
+                `Failed to update Auction status.`
             );
         }
     } catch (error) {
         console.error('Error in updateAuctionStatusApi:', error);
         throw new Error(
-            `Network or processing error when updating Auction status: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when updating Auction status`
         );
     }
 }
@@ -366,21 +369,21 @@ export async function updateAuctionCompleteStatusApi(
 
         if (response.ok) {
             const result = await response.json();
+            console.log(result.message);
             return {
-                message: result.message || 'Update status Auction successfully.',
+                message: 'Update status Auction successfully.',
             };
         } else {
             const errorText = await response.text();
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
             throw new Error(
-                `Failed to update Auction status. Status: ${response.status}. Response: ${errorText}`
+                `Failed to update Auction status.`
             );
         }
     } catch (error) {
         console.error('Error in updateAuctionCompleteStatusApi:', error);
         throw new Error(
-            `Network or processing error when updating Auction status: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when updating Auction status`
         );
     }
 }
@@ -414,16 +417,15 @@ console.log(`DELETE ${unverifyUrl}`);
             };
         } else {
             const errorText = await response.text();
+            console.error(errorText);
             throw new Error(
-                `Failed to delete Auction. Response: ${errorText}`
+                `Failed to delete Auction`
             );
         }
     } catch (error) {
         console.error('Error in deletedAuctionApi:', error);
         throw new Error(
-            `Network or processing error when can't delete Auction: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when can't delete Auction`
         );
     }
 };
@@ -482,21 +484,21 @@ export async function countBids(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch Bid count. Status: ${response.status}. Error: ${errorText}`);
+            throw new Error(`Failed to fetch Bid count.`);
         }
         
         const resultText = await response.text();
         const count = parseInt(resultText.trim(), 10);
         
         if (isNaN(count)) {
-            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+            throw new Error(`Invalid response format from count`);
         }
         
         return count;
 
     } catch (error) {
         console.error("Error in countBid:", error);
-        throw new Error(`Could not connect to the Bid count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the Bid count`);
     }
 }
 
@@ -547,21 +549,22 @@ export async function countBidsMe(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch Bid count. Status: ${response.status}. Error: ${errorText}`);
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
+            throw new Error(`Failed to fetch Bid count.`);
         }
         
         const resultText = await response.text();
         const count = parseInt(resultText.trim(), 10);
         
         if (isNaN(count)) {
-            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+            throw new Error(`Invalid response format from coun`);
         }
         
         return count;
 
     } catch (error) {
         console.error("Error in countBid:", error);
-        throw new Error(`Could not connect to the Bid count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the Bid count`);
     }
 }
 
@@ -621,7 +624,8 @@ export async function searchBidsMe(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch Bid. Status: ${response.status}. Error: ${errorText}`);
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
+            throw new Error(`Failed to fetch Bid.`);
         }
 
         const result = await response.json(); 
@@ -632,7 +636,7 @@ export async function searchBidsMe(
         }));
     } catch (error) {
         console.error("Error in searchAuciton:", error);
-        throw new Error(`Could not connect to the Bid API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the Bid`);
     }
 };
 
@@ -694,7 +698,8 @@ export async function searchBids(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch Bid. Status: ${response.status}. Error: ${errorText}`);
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
+            throw new Error(`Failed to fetch Bid. `);
         }
 
         const result = await response.json(); 
@@ -705,7 +710,7 @@ export async function searchBids(
         }));
     } catch (error) {
         console.error("Error in searchAuciton:", error);
-        throw new Error(`Could not connect to the Bid API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the Bid `);
     }
 };
 
@@ -754,16 +759,15 @@ export async function createBidApi(
             
         } else {
             const errorText = await response.text();
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
             throw new Error(
-                `Failed to create Bid. Status: ${response.status}. Error: ${errorText}`
+                `Failed to create Bid. `
             );
         }
     } catch (error) {
         console.error('Error in createBidApi:', error);
         throw new Error(
-            `Network or processing error when creating Bid: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when creating Bid`
         );
     }
 }
@@ -793,21 +797,20 @@ console.log(`DELETE ${unverifyUrl}`);
             } 
 
             return {
-                message: result.message || 'Delete bidId successfully.',
+                message:   'Delete bidId successfully.',
             };
         } else {
             const errorText = await response.text();
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
             throw new Error(
-                `Failed to delete bidId. Response: ${errorText}`
+                `Failed to delete bidId`
             );
         }
     } catch (error) {
     
         console.error('Error in deletedBidApi:', error);
         throw new Error(
-            `Network or processing error when can't delete bid: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when can't delete bid`
         );
     }
 };
@@ -841,7 +844,7 @@ export async function getAuctionsIBidded(): Promise<AuctionDetailData[]> {
         
     } catch (error) {
         console.error("Error in getAuctionsIBidded:", error);
-        throw new Error(`Failed to fetch bidded auctions: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Failed to fetch bidded auctions`);
     }
 }
 
@@ -863,21 +866,21 @@ export async function updateTransactionApi(
 
         if (response.ok) {
             const result = await response.json();
+            console.log(result.message);
             return {
-                message: result.message || 'Update transaction for bid successfully.',
+                message: 'Update transaction for bid successfully.',
             };
         } else {
             const errorText = await response.text();
+            console.error(`Status: ${response.status}. Error: ${errorText}`);
             throw new Error(
-                `Failed to Update transaction for bid. Response: ${errorText}`
+                `Failed to Update transaction for bid.`
             );
         }
     } catch (error) {
         console.error('Error in updateTransactionApi:', error);
         throw new Error(
-            `Network or processing error when Update transaction for bid: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when Update transaction for bid`
         );
     }
 }
@@ -896,7 +899,8 @@ export async function getIsMeWinnerById(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch Error: ${errorText}`);
+            console.error(errorText);
+            throw new Error(`Failed to fetch Error`);
         }
         
         // API trả về boolean, nên parse trực tiếp
@@ -905,6 +909,6 @@ export async function getIsMeWinnerById(
 
     } catch (error) {
         console.error("Error in getIsMeWinnerById:", error);
-        throw new Error(`Could not connect to API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to Service`);
     }
 }

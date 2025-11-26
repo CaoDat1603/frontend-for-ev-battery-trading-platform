@@ -101,8 +101,9 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tạo giao dịch. Lỗi: ${errorText || response.status}`
+          `Không thể tạo giao dịch`
         );
       }
 
@@ -110,8 +111,9 @@ export const OrderService = {
       // API trả về { TransactionId: ... } hoặc { transactionId: ... }
       return result.transactionId ?? result.TransactionId;
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error ? err.message : "Không thể tạo giao dịch";
+        "Không thể tạo giao dịch";
       throw new Error(msg);
     }
   },
@@ -130,20 +132,18 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tải danh sách giao dịch đã mua. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải danh sách giao dịch đã mua.`
         );
       }
 
       const data = (await response.json()) as any[];
       return data.map(normalizeTransaction);
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải danh sách giao dịch đã mua";
+        "Không thể tải danh sách giao dịch đã mua";
       throw new Error(msg);
     }
   },
@@ -162,20 +162,18 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tải danh sách giao dịch đã bán. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải danh sách giao dịch đã bán.`
         );
       }
 
       const data = (await response.json()) as any[];
       return data.map(normalizeTransaction);
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải danh sách giao dịch đã bán";
+       "Không thể tải danh sách giao dịch đã bán";
       throw new Error(msg);
     }
   },
@@ -194,20 +192,18 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tải giao dịch #${id}. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải giao dịch`
         );
       }
 
       const data = await response.json();
       return normalizeTransaction(data);
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải chi tiết giao dịch";
+        "Không thể tải chi tiết giao dịch";
       throw new Error(msg);
     }
   },
@@ -224,15 +220,15 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể hủy giao dịch #${id}. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể hủy giao dịch`
         );
       }
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error ? err.message : "Không thể hủy giao dịch";
+        "Không thể hủy giao dịch";
       throw new Error(msg);
     }
   },
@@ -251,20 +247,18 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tải danh sách giao dịch. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải danh sách giao dịch.`
         );
       }
 
       const data = (await response.json()) as any[];
       return data.map(normalizeTransaction);
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải danh sách giao dịch";
+        "Không thể tải danh sách giao dịch";
       throw new Error(msg);
     }
   },
@@ -286,20 +280,18 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tải cấu hình phí. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải cấu hình phí.`
         );
       }
 
       const data = await response.json();
       return normalizeFeeSettings(data);
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải cấu hình phí";
+        "Không thể tải cấu hình phí";
       throw new Error(msg);
     }
   },
@@ -318,20 +310,18 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error( errorText || response.status);
         throw new Error(
-          `Không thể tải lịch sử cấu hình phí. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải lịch sử cấu hình phí.`
         );
       }
 
       const data = (await response.json()) as any[];
       return data.map(normalizeFeeSettings);
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải lịch sử cấu hình phí";
+        "Không thể tải lịch sử cấu hình phí";
       throw new Error(msg);
     }
   },
@@ -353,17 +343,15 @@ export const OrderService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể cập nhật cấu hình phí. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể cập nhật cấu hình phí.`
         );
       }
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể cập nhật cấu hình phí";
+        "Không thể cập nhật cấu hình phí";
       throw new Error(msg);
     }
   },

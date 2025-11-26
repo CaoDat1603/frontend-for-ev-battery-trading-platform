@@ -44,6 +44,7 @@ import {
     type AuctionStatus 
 } from '../services/auctionService'; 
 
+import { UserService } from '../services/userService';
 
 // --- CONSTANTS VÀ HELPERS ---
 const PRODUCT_TYPE_VALUES = {
@@ -152,7 +153,8 @@ const ProductDetailPage: React.FC = () => {
 
     const [showPdfViewer, setShowPdfViewer] = useState(false);
     const [openImageModal, setOpenImageModal] = useState(false);
-    
+    const [sellerName, setSellerName] = useState<string>('Đang tải...'); 
+
     const buyerId = getCurrentUserId();
     
     // --- GỌI API VÀ XỬ LÝ DATA ---
@@ -202,6 +204,33 @@ const ProductDetailPage: React.FC = () => {
         fetchProduct();
     }, [postId]);
 
+    useEffect(() => {
+        // Chỉ chạy khi product đã được tải thành công và có sellerId
+        if (product && product.sellerId) {
+            const fetchSellerName = async (sellerId: number) => {
+                setSellerName('Đang tải...'); // Set trạng thái tải
+                try {
+                    // Giả định UserService và getUserById đã được import
+                    const userData = await UserService.getUserById(sellerId);
+                    
+                    // Giả định response data có trường 'fullname'
+                    const name = `${userData.fullname || ''}`.trim();
+                    
+                    // Nếu tên trống, hiển thị ID hoặc một tên mặc định
+                    setSellerName(name || `ID Người bán: ${sellerId}`); 
+                } catch (error) {
+                    console.error(`Lỗi khi lấy tên người bán (ID: ${sellerId}):`, error);
+                    setSellerName(`ID Người bán: ${sellerId}`); // Hiển thị ID nếu lỗi
+                }
+            };
+            
+            fetchSellerName(product.sellerId);
+        } else if (product && !product.sellerId) {
+             // Trường hợp product đã load nhưng không có sellerId (ID = 0 hoặc null)
+             setSellerName('Người bán không xác định'); 
+        }
+    }, [product?.sellerId]);
+
     const handleOpenImageModal = () => {
         if (product?.imageUrl) {
             setOpenImageModal(true);
@@ -242,10 +271,10 @@ const ProductDetailPage: React.FC = () => {
             } else {
                 const latestAuction = searchResults[0]; 
                 if (latestAuction && latestAuction.auctionId) {
-                     alert(`Phiên đấu giá đã kết thúc. Chuyển đến xem kết quả: ${latestAuction.auctionId}`);
+                     //alert(`Phiên đấu giá đã kết thúc. Chuyển đến xem kết quả: ${latestAuction.auctionId}`);
                      navigate(`/detail-auction/${latestAuction.auctionId}/${product.sellerId}`);
                 } else {
-                     alert(`Sản phẩm chưa có phiên đấu giá nào. Tạo phiên đấu giá mới.`);
+                     //alert(`Sản phẩm chưa có phiên đấu giá nào. Tạo phiên đấu giá mới.`);
                      navigate(`/create-auction/${product.productId}/${product.sellerId}`)
                 }
             }
@@ -265,7 +294,7 @@ const ProductDetailPage: React.FC = () => {
         if (product.methodSale === SaleMethodValue.Auction) {
             handleBidAction();
         } else {
-            navigate(`/invoice-detail/${product.productId}/${product.sellerId}`, {
+            navigate(`/invoice-detail/${product.productId}`, {
                 state: {
                     productId: product.productId,
                     title: product.title,
@@ -276,6 +305,12 @@ const ProductDetailPage: React.FC = () => {
                 },
             });
         }
+    };
+
+    const handleSellerClick = (e: React.MouseEvent) => {
+        e.stopPropagation(); 
+        // Điều hướng đến trang xem hồ sơ người dùng
+        navigate(`/view-user/${product?.sellerId}`);
     };
 
 
@@ -397,7 +432,8 @@ const ProductDetailPage: React.FC = () => {
                                 <ListItemIcon><PersonIcon color="primary" /></ListItemIcon>
                                 <ListItemText 
                                     primary="Người đăng" 
-                                    secondary={<Box component="span" sx={{ fontWeight: 'bold' }}>{product.author || `User ID: ${product.sellerId}`}</Box>}
+                                    secondary={<Box component="span" 
+                                        sx={{ fontWeight: 'bold' }} onClick={handleSellerClick}>{`${sellerName}`}</Box>}
                                 />
                             </ListItem>
                             <ListItem disableGutters>

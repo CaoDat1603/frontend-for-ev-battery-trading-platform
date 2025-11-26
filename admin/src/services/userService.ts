@@ -15,6 +15,7 @@ export const UserService = {
                 withCredentials: true,
             });
 
+            console.log(res.data)
             return res.data;
         } catch (err: any) {
             const msg = err.response?.data?.message || "Không thể lấy thông tin người dùng";

@@ -16,6 +16,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import HeadsetIcon from '@mui/icons-material/Headset';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import LogoutIcon from '@mui/icons-material/Logout';
+import MonetizationOnIcon from "@mui/icons-material/MonetizationOn";
 
 interface AccountMenuPopoverProps {
     open: boolean;
@@ -35,6 +36,7 @@ interface MenuLink {
 const utilityLinks: MenuLink[] = [
     { text: 'Tin đăng đã lưu', icon: FavoriteBorderIcon, path: '/manage-wishlists' },
     { text: 'Lịch sử', icon: HistoryIcon, path: '/my-purchases' },
+    { text: 'Danh sách giao dịch đến tôi', icon: MonetizationOnIcon, path: '/my-transactions' },
 ];
 
 

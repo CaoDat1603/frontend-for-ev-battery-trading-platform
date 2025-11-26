@@ -11,7 +11,8 @@ export const AuthService = {
       localStorage.setItem("accessToken", res.data.token);
       return res.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || "Đăng nhập thất bại");
+      console.log(error.response?.data?.message);
+      throw new Error("Đăng nhập thất bại");
     }
   },
 
@@ -20,7 +21,8 @@ export const AuthService = {
       const res = await axiosInstance.post("/auth/refresh-token");
       return res.data;
     } catch (error: any) {
-      throw new Error(error.response?.data?.message || "Refresh token thất bại");
+      console.log(error.response?.data?.message);
+      throw new Error("Refresh token thất bại");
     }
   },
 
@@ -45,7 +47,8 @@ export const AuthService = {
       });
       return response.data;
     } catch (err: any) {
-      throw new Error(err.response?.data?.message || "Đăng ký thất bại");
+      console.log(err.response?.data?.message);
+      throw new Error("Đăng ký thất bại");
     }
   },
 
@@ -57,7 +60,8 @@ export const AuthService = {
       });
       return response.data;
     } catch (err: any) {
-      throw new Error(err.response?.data?.message || "Mã OTP không hợp lệ hoặc đã hết hạn");
+      console.log(err.response?.data?.message);
+      throw new Error( "Mã OTP không hợp lệ hoặc đã hết hạn");
     }
   },
 
@@ -68,7 +72,8 @@ export const AuthService = {
       });
       return response.data;
     } catch (err: any) {
-      throw new Error(err.response?.data?.message || "Không thể gửi lại OTP");
+      console.log(err.response?.data?.message);
+      throw new Error("Không thể gửi lại OTP");
     }
   },
 
@@ -81,7 +86,8 @@ export const AuthService = {
       );
       return response.data;
     } catch (err: any) {
-      throw new Error(err.response?.data || "Không thể gửi yêu cầu reset mật khẩu");
+      console.log(err.response?.data?.message);
+      throw new Error("Không thể gửi yêu cầu reset mật khẩu");
     }
   },
 
@@ -93,7 +99,8 @@ export const AuthService = {
       });
       return response.data;
     } catch (err: any) {
-      throw new Error(err.response?.data || "Reset password thất bại");
+      console.log(err.response?.data?.message);
+      throw new Error("Reset password thất bại");
     }
   },
 };

@@ -30,11 +30,14 @@ import CreateAuctionPage from './pages/CreateAuctionPage'
 import AuctionDetailPage from './pages/AuctionDetailPage';
 import { ManageAuctionsPage } from './pages/ManageAuctionPage';
 import MyPurchasesPage from './pages/MyPurchasesPage'
+import AuctionDetailPageSimple from './pages/AuctionDetailPageSimple';
 
 // BỔ SUNG: Import LocationProvider
 import { LocationProvider } from './context/LocationContext'; 
 
-import TransactionDetailPage from './pages/TransactionDetailPage'
+import SellerTransactionDetailPage from './pages/SellerTransactionDetailPage';
+import ManageSellerTransactionPage from './pages/ManageSellerTransactionPage';
+import TransactionDetailPage from './pages/TransactionDetailPage';
 import InvoiceDetailPage from './pages/InvoiceDetailPage';
 import PaymentResultPage from './pages/PaymentResultPage';
 import CreateComplaint from './pages/Complaint/CreateComplaint';
@@ -120,6 +123,7 @@ const App: React.FC = () => (
                     path="/account/profile"
                     element={
                         <LayoutMain>
+                            <ScrollToTop /> 
                             <ProfilePage />
                         </LayoutMain>
                     }
@@ -128,6 +132,7 @@ const App: React.FC = () => (
                     path="/car-ecycle"
                     element={
                         <LayoutMain>
+                            <ScrollToTop /> 
                             <ElectricCarBatteryPage />
                         </LayoutMain>
                     }
@@ -136,6 +141,7 @@ const App: React.FC = () => (
                     path="/scooter-ecycle"
                     element={
                         <LayoutMain>
+                            <ScrollToTop /> 
                             <ElectricScooterBatteryPage />
                         </LayoutMain>
                     }
@@ -144,6 +150,7 @@ const App: React.FC = () => (
                     path="/battery-ecycle"
                     element={
                         <LayoutMain>
+                            <ScrollToTop /> 
                             <ElectricBatteryPage />
                         </LayoutMain>
                     }
@@ -197,6 +204,7 @@ const App: React.FC = () => (
                     path="/view-user/:userId"
                     element={
                         <LayoutMain>
+                            <ScrollToTop /> 
                             <ViewUserPage />
                         </LayoutMain>
                     }
@@ -205,6 +213,7 @@ const App: React.FC = () => (
                     path="/manage-wishlists"
                     element={
                         <LayoutMain>
+                            <ScrollToTop /> 
                             <WishlistPage />
                         </LayoutMain>
                     }
@@ -233,6 +242,15 @@ const App: React.FC = () => (
                         <LayoutMain>
                             <ScrollToTop /> 
                             <ManageAuctionsPage />
+                        </LayoutMain>
+                    }
+                />   
+                <Route
+                    path="/manage-auction-detail/:auctionId"
+                    element={
+                        <LayoutMain>
+                            <ScrollToTop /> 
+                            <AuctionDetailPageSimple />
                         </LayoutMain>
                     }
                 />   
@@ -330,7 +348,25 @@ const App: React.FC = () => (
                         <TransactionDetailPage />
                     </LayoutMain>
                     }
-                />         
+                />    
+                <Route
+                    path="my-transactions"
+                    element={
+                    <LayoutMain>
+                        <ScrollToTop />
+                        <ManageSellerTransactionPage />
+                    </LayoutMain>
+                    }
+                />   
+                <Route
+                    path="seller-transactions/:transactionId"
+                    element={
+                    <LayoutMain>
+                        <ScrollToTop />
+                        <SellerTransactionDetailPage />
+                    </LayoutMain>
+                    }
+                />       
             </Routes>
         </BrowserRouter>
     </LocationProvider>

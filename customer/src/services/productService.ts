@@ -203,7 +203,8 @@ export async function searchForGuest(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch products. Status: ${response.status}. Error: ${errorText}`);
+            console.log(errorText);
+            throw new Error(`Failed to shearch product`);
         }
         
         // GIẢ LẬP MAPPING VÀ DỮ LIỆU ĐỂ UI CÓ THỂ RENDER
@@ -221,7 +222,7 @@ export async function searchForGuest(
 
     } catch (error) {
         console.error("Error in getProductsForModeration:", error);
-        throw new Error(`Could not connect to the product API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to service'}`);
     }
 }
 
@@ -303,7 +304,8 @@ export async function searchForSeller(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch products. Status: ${response.status}. Error: ${errorText}`);
+            console.log(errorText);
+            throw new Error(`Failed to shearch Product`);
         }
         
         // GIẢ LẬP MAPPING VÀ DỮ LIỆU ĐỂ UI CÓ THỂ RENDER
@@ -322,7 +324,7 @@ export async function searchForSeller(
 
     } catch (error) {
         console.error("Error in getProductsForModeration:", error);
-        throw new Error(`Could not connect to the product API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to Service`);
     }
 }
 
@@ -383,7 +385,8 @@ export async function countProduct(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch product count. Status: ${response.status}. Error: ${errorText}`);
+            console.log(errorText);
+            throw new Error(`Failed to fetch product count.`);
         }
         
         // SỬA LỖI RESPONSE: Đọc dưới dạng văn bản và chuyển sang số nguyên
@@ -392,14 +395,15 @@ export async function countProduct(
         
         // Kiểm tra xem kết quả có phải là một số hợp lệ không
         if (isNaN(count)) {
-            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+            console.log(`Invalid response format from count API: Expected number, got "${resultText}"`)
+            throw new Error(`Invalid response format from count Product.`);
         }
         
         return count;
 
     } catch (error) {
         console.error("Error in countProduct:", error);
-        throw new Error(`Could not connect to the product count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the Service`);
     }
 }
 
@@ -463,7 +467,8 @@ export async function countProductSeller(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch product count. Status: ${response.status}. Error: ${errorText}`);
+            console.log(errorText);
+            throw new Error(`Failed to fetch product count`);
         }
         
         // SỬA LỖI RESPONSE: Đọc dưới dạng văn bản và chuyển sang số nguyên
@@ -472,14 +477,15 @@ export async function countProductSeller(
         
         // Kiểm tra xem kết quả có phải là một số hợp lệ không
         if (isNaN(count)) {
-            throw new Error(`Invalid response format from count API: Expected number, got "${resultText}"`);
+            console.log(`Invalid response format from count API: Expected number, got "${resultText}"`)
+            throw new Error("Invalid response format from count Product");
         }
         
         return count;
 
     } catch (error) {
         console.error("Error in countProduct:", error);
-        throw new Error(`Could not connect to the product count API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the product count.`);
     }
 }
 
@@ -496,7 +502,8 @@ export async function getProductById(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch product by ID. Status: ${response.status}. Error: ${errorText}`);
+            console.log(errorText);
+            throw new Error(`Failed to fetch product`);
         }
         
         // Lấy kết quả (giả định đây là đối tượng sản phẩm duy nhất)
@@ -515,7 +522,7 @@ export async function getProductById(
 
     } catch (error) {
         console.error("Error in getProductById:", error);
-        throw new Error(`Could not connect to the product API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the product`);
     }
 }
 
@@ -533,7 +540,8 @@ export async function getIsMeProductById(
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Failed to fetch product by ID. Status: ${response.status}. Error: ${errorText}`);
+            console.log(errorText);
+            throw new Error(`Failed to fetch product`);
         }
         
         // API trả về boolean, nên parse trực tiếp
@@ -542,7 +550,7 @@ export async function getIsMeProductById(
 
     } catch (error) {
         console.error("Error in getIsMeProductById:", error);
-        throw new Error(`Could not connect to the product API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Could not connect to the product`);
     }
 }
 
@@ -581,16 +589,15 @@ export async function deletedProductApi(
             };
         } else {
             const errorText = await response.text();
+            console.log(errorText);
             throw new Error(
-                `Failed to delete product. Response: ${errorText}`
+                `Failed to delete product`
             );
         }
     } catch (error) {
         console.error('Error in deleteProductApi:', error);
         throw new Error(
-            `Network or processing error when can't delete product: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            "Network or processing error when can't delete product,"
         );
     }
 }
@@ -667,16 +674,15 @@ export async function createProductApi(
             
         } else {
             const errorText = await response.text();
+            console.log(errorText);
             throw new Error(
-                `Failed to create product. Status: ${response.status}. Error: ${errorText}`
+                `Failed to create product`
             );
         }
     } catch (error) {
         console.error('Error in createProductApi:', error);
         throw new Error(
-            `Network or processing error when creating product: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when creating product`
         );
     }
 }
@@ -708,16 +714,15 @@ export async function updateProductStatusApi(
             };
         } else {
             const errorText = await response.text();
+            console.log(errorText);
             throw new Error(
-                `Failed to update product status. Status: ${response.status}. Response: ${errorText}`
+                `Failed to update product status.`
             );
         }
     } catch (error) {
         console.error('Error in updateProductStatusApi:', error);
         throw new Error(
-            `Network or processing error when updating product status: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when updating product status`
         );
     }
 }
@@ -750,16 +755,15 @@ export async function updateSaleMethodApi(
             };
         } else {
             const errorText = await response.text();
+            console.log(errorText);
             throw new Error(
-                `Failed to update product sale method. Sale method: ${response.status}. Response: ${errorText}`
+                `Failed to update product sale method. Sale method`
             );
         }
     } catch (error) {
         console.error('Error in updateProductSaleMethodApi:', error);
         throw new Error(
-            `Network or processing error when updating product sale method: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when updating product sale method`
         );
     }
 }
@@ -788,16 +792,15 @@ export async function verifiedTransactionApi(
             };
         } else {
             const errorText = await response.text();
+            console.log(errorText);
             throw new Error(
-                `Failed to update product verify transaction. Sale method: Response: ${errorText}`
+                `Failed to update product verify transaction. Sale method`
             );
         }
     } catch (error) {
         console.error('Error in verifiedTransactionApi:', error);
         throw new Error(
-            `Network or processing error when updating product verify transaction: ${
-                error instanceof Error ? error.message : 'Unknown error'
-            }`
+            `Network or processing error when updating product verify transaction`
         );
     }
 }

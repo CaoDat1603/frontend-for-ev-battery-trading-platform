@@ -25,8 +25,8 @@ interface UserDetail {
     userAddress: string | null;
     userBirthday: string | null;
     contactPhone: string | null;
-    avatar: string | null;
-    citizenIdCard: string | null;
+    avatar: string | null; // Ví dụ: '/uploads/avatars/user_123.jpg'
+    citizenIdCard: string | null; // **ĐÃ THÊM: Đường dẫn ảnh CCCD**
     // ĐÃ THÊM: Role của người dùng
     role: 'Guest' | 'Member' | 'Admin' | 'Moderator'; // Giả định các role
     userStatus: 'Active' | 'Locked' | 'Disabled'; 
@@ -57,7 +57,8 @@ const getRoleChip = (role: UserDetail['role']): JSX.Element => {
 
 
 // Giả định BASE_URL (Thay thế bằng BASE_URL thực tế)
-const BASE_URL_FOR_ASSETS = 'http://your-api-base-url.com'; 
+// Ví dụ: 'http://localhost:8000/identity'
+const BASE_URL_FOR_ASSETS = 'http://localhost:8000/identity'; 
 
 const UserDetailPage: React.FC = () => {
     const { userId } = useParams<{ userId: string }>(); 
@@ -65,7 +66,6 @@ const UserDetailPage: React.FC = () => {
     const { enqueueSnackbar } = useSnackbar();
     
     // State
-    // Cập nhật state để chứa UserDetail mới (bao gồm role)
     const [user, setUser] = useState<UserDetail | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
@@ -79,8 +79,6 @@ const UserDetailPage: React.FC = () => {
 
         setIsLoading(true);
         try {
-            // LƯU Ý: Đảm bảo AdminService.getUserById trả về dữ liệu có chứa thuộc tính 'role'
-            // Dữ liệu mock/thực tế phải khớp với interface UserDetail
             const data: UserDetail = await AdminService.getUserById(idToFetch);
             setUser(data);
         } catch (error) {
@@ -184,7 +182,15 @@ const UserDetailPage: React.FC = () => {
     // --- Component Chi tiết Người dùng ---
     
     const isUserActive = user.userStatus === 'Active';
+    // URL Avatar
     const avatarUrl = user.avatar ? `${BASE_URL_FOR_ASSETS}${user.avatar}` : undefined;
+    // URL CCCD
+    const cccdUrl = user.citizenIdCard ? `${BASE_URL_FOR_ASSETS}${user.citizenIdCard}` : undefined;
+
+    // ************ DÒNG KIỂM TRA URL ************
+    console.log("Avatar URL used:", avatarUrl);
+    console.log("CCCD URL used:", cccdUrl); // Dòng kiểm tra CCCD mới
+    // ****************************************
 
     return (
         <Box>
@@ -206,7 +212,7 @@ const UserDetailPage: React.FC = () => {
                         <Typography variant="subtitle1" color="text.secondary">
                             User ID: {user.userId}
                         </Typography>
-                        {/* HIỂN THỊ ROLE (ĐÃ THÊM VÀO ĐÂY) */}
+                        {/* HIỂN THỊ ROLE */}
                         {getRoleChip(user.role)}
                     </Stack>
                 </Box>
@@ -308,6 +314,43 @@ const UserDetailPage: React.FC = () => {
                             </Box>
                         </Stack>
                     </Box>
+                    
+                    <Divider /> {/* Tách thông tin cơ bản với CCCD */}
+
+                    {/* 3. THÔNG TIN CCCD (ĐÃ THÊM) */}
+                    <Box>
+                        <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                            Verification Documents (Citizen ID Card)
+                        </Typography>
+                        
+                        {cccdUrl ? (
+                            <Tooltip title="Click to view full image in a new tab">
+                                <Box 
+                                    sx={{ 
+                                        mt: 2, 
+                                        maxWidth: 300, 
+                                        border: '1px solid #ccc', 
+                                        borderRadius: '4px', 
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                    }}
+                                    onClick={() => window.open(cccdUrl, '_blank')}
+                                >
+                                    <img 
+                                        src={cccdUrl} 
+                                        alt="Citizen ID Card" 
+                                        style={{ width: '100%', height: 'auto', display: 'block' }}
+                                    />
+                                </Box>
+                            </Tooltip>
+                        ) : (
+                            <Typography color="text.secondary" sx={{ mt: 1 }}>
+                                No Citizen ID Card image provided.
+                            </Typography>
+                        )}
+                    </Box>
+
+                    <Divider />
                     
                     {/* 2. Trạng thái & Verification */}
                     <Box>

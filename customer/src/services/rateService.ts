@@ -12,7 +12,8 @@ export const RateService = {
             const res = await axios.get<RateListResponse>(`${API_BASE_URL}?userId=${targetUserId}`);
             return res.data; // Trả về toàn bộ object RateListResponse
         } catch (err: any) {
-            const msg = err.response?.data?.message || "Không thể lấy thông tin đánh giá.";
+            console.error(err.response?.data?.message);
+            const msg = "Không thể lấy thông tin đánh giá.";
             throw new Error(msg); 
         }
     },
@@ -22,7 +23,8 @@ export const RateService = {
             const res = await axios.get<RateListResponse>(`${API_BASE_URL}?productId=${targetProductId}`);
             return res.data; // Trả về toàn bộ object RateListResponse
         } catch (err: any) {
-            const msg = err.response?.data?.message || "Không thể lấy thông tin đánh giá.";
+            console.error(err.response?.data?.message);
+            const msg =  "Không thể lấy thông tin đánh giá.";
             throw new Error(msg); 
         }
     },
@@ -50,7 +52,8 @@ export const RateService = {
             );
             return res.data;
         } catch (err: any) {
-            const msg = err.response?.data?.message || "Không thể gửi đánh giá.";
+            console.log(err.response?.data?.message);
+            const msg =  "Không thể gửi đánh giá.";
             throw new Error(msg);
         }
     },
@@ -76,7 +79,8 @@ export const RateService = {
                 }
             );
         } catch (err: any) {
-            const msg = err.response?.data?.message || "Không thể tải ảnh đánh giá lên.";
+            console.error(err.response?.data?.message );
+            const msg = "Không thể tải ảnh đánh giá lên.";
             throw new Error(msg);
         }
     },
@@ -104,7 +108,8 @@ export const RateService = {
             );
             return res.data;
         } catch (err: any) {
-            const msg = err.response?.data?.message || "Không thể gửi đánh giá.";
+            const msg = "Không thể gửi đánh giá.";
+            console.error(err.response?.data?.message);
             throw new Error(msg);
         }
     },

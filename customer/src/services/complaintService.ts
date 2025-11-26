@@ -30,7 +30,8 @@ export const ComplaintService = {
 
             return res.data;
         } catch (err: any) {
-            throw new Error(err.response?.data?.message || "Không thể tạo khiếu nại.");
+            console.log(err.response?.data?.message);
+            throw new Error("Không thể tạo khiếu nại.");
         }
     },
 
@@ -53,7 +54,8 @@ export const ComplaintService = {
 
             return res.data;
         } catch (err: any) {
-            throw new Error(err.response?.data?.message || "Không thể lấy thông tin khiếu nại.");
+            console.log(err.response?.data?.message);
+            throw new Error("Không thể lấy thông tin khiếu nại.");
         }
     },
 
@@ -76,7 +78,8 @@ export const ComplaintService = {
 
             return res.data;
         } catch (err: any) {
-            throw new Error(err.response?.data?.message || "Không thể lấy số lượng khiếu nại.");
+            console.log(err.response?.data?.message);
+            throw new Error("Không thể lấy số lượng khiếu nại.");
         }
     },
     // FILE: ComplaintService
@@ -98,7 +101,8 @@ export const ComplaintService = {
             );
             return res.data;
         } catch (err: any) {
-            const msg = err.response?.data?.message || "Không thể lấy danh sách khiếu nại.";
+            console.log(err.response?.data?.message);
+            const msg = "Không thể lấy danh sách khiếu nại.";
             throw new Error(msg);
         }
     },

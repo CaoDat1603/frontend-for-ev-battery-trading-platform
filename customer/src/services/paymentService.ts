@@ -50,10 +50,9 @@ export const PaymentService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.log(errorText || response.status);
         throw new Error(
-          `Không thể khởi tạo thanh toán. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể khởi tạo thanh toán.`
         );
       }
 
@@ -61,10 +60,8 @@ export const PaymentService = {
       // API trả về { PaymentUrl: "..." } hoặc { paymentUrl: "..." }
       return result.paymentUrl ?? result.PaymentUrl;
     } catch (err: any) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tạo URL thanh toán";
+      const msg = "Không thể tạo URL thanh toán";
+      console.error(err.message);
       throw new Error(msg);
     }
   },
@@ -88,20 +85,18 @@ export const PaymentService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tải lịch sử thanh toán. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải lịch sử thanh toán`
         );
       }
 
       const data = (await response.json()) as any[];
       return data.map(normalizePayment);
     } catch (err: any) {
+      console.error(err.message)
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải lịch sử thanh toán";
+        "Không thể tải lịch sử thanh toán";
       throw new Error(msg);
     }
   },
@@ -120,20 +115,18 @@ export const PaymentService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể tải danh sách thanh toán. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể tải danh sách thanh toán.`
         );
       }
 
       const data = (await response.json()) as any[];
       return data.map(normalizePayment);
     } catch (err: any) {
+      console.error(err.message);
       const msg =
-        err instanceof Error
-          ? err.message
-          : "Không thể tải danh sách thanh toán";
+        "Không thể tải danh sách thanh toán";
       throw new Error(msg);
     }
   },
@@ -158,15 +151,15 @@ export const PaymentService = {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(errorText || response.status);
         throw new Error(
-          `Không thể yêu cầu hoàn tiền. Lỗi: ${
-            errorText || response.status
-          }`
+          `Không thể yêu cầu hoàn tiền.`
         );
       }
     } catch (err: any) {
+      console.error(err.message );
       const msg =
-        err instanceof Error ? err.message : "Không thể yêu cầu hoàn tiền";
+        "Không thể yêu cầu hoàn tiền";
       throw new Error(msg);
     }
   },

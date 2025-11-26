@@ -22,6 +22,17 @@ const ECYCLE_COLOR = '#1cff2bff';
 const ECYCLE_COLOR_HOVER = '#1cff2b94';
 const TEXT_COLOR = '#0a2309';
 
+// *** HÀM MỚI: Lấy User ID từ Local Storage ***
+const getCurrentUserId = (): number | null => {
+    // Giả định: User ID được lưu dưới key 'userId' và là một chuỗi số
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+        // Chuyển đổi sang số và trả về, nếu không hợp lệ thì trả về null
+        return parseInt(userId, 10) || null;
+    }
+    return null; 
+};
+
 const getStatusName = (status: number) => {
     return Object.keys(AuctionStatusValue).find(
         key => (AuctionStatusValue as any)[key] === status
@@ -60,7 +71,8 @@ export const AuctionCard: React.FC<AuctionCardProps> = ({ auction, isBidder, isS
     
     const statusText = getStatusName(auction.status);
     const isCompletedOrEnded = auction.status === AuctionStatusValue.Ended || auction.status === AuctionStatusValue.Completed;
-    const currentUserId = 1; 
+    // *** SỬ DỤNG HÀM LẤY ID TỪ LOCAL STORAGE ***
+    const currentUserId = getCurrentUserId(); 
     
     const [productDetails, setProductDetails] = useState<ProductData | null>(null);
     const [isProductLoading, setIsProductLoading] = useState(true);
@@ -96,11 +108,11 @@ export const AuctionCard: React.FC<AuctionCardProps> = ({ auction, isBidder, isS
     };
 
     if (isProductLoading) {
-         return (
-             <div style={{ padding: '15px', border: `1px solid ${ECYCLE_COLOR_HOVER}`, borderRadius: '8px', textAlign: 'center', backgroundColor: '#fafafa' }}>
+        return (
+            <div style={{ padding: '15px', border: `1px solid ${ECYCLE_COLOR_HOVER}`, borderRadius: '8px', textAlign: 'center', backgroundColor: '#fafafa' }}>
                 Đang tải chi tiết sản phẩm gốc...
-             </div>
-         );
+            </div>
+        );
     }
     
     const imageUrl = productDetails?.imageUrl || auction.productImageUrl;
@@ -108,12 +120,21 @@ export const AuctionCard: React.FC<AuctionCardProps> = ({ auction, isBidder, isS
     const productType = productDetails?.productType || 0; 
     const pickupAddress = productDetails?.pickupAddress || 'Không rõ địa chỉ';
     const productDescription = productDetails?.description || 'Không có mô tả chi tiết';
-
-    // *** HÀM XỬ LÝ CLICK MỚI (bao gồm cả 'view') ***
+    // Lấy Seller ID từ chi tiết sản phẩm
+    const sellerId = productDetails?.sellerId;
+   
+    // *** HÀM XỬ LÝ CLICK ĐÃ CẬP NHẬT (bao gồm logic chuyển hướng mới cho Seller) ***
     const handleLocalActionClick = (action: 'view' | 'cancel' | 'complete', auctionId: number) => {
         if (action === 'view') {
-            // *** THỰC HIỆN CHUYỂN HƯỚNG THEO ĐƯỜNG DẪN BẠN YÊU CẦU ***
-            navigate(`/detail-auction/${auctionId}`); 
+            const isCurrentUserSeller = currentUserId !== null && sellerId !== undefined && currentUserId === sellerId;
+
+            if (isCurrentUserSeller) {
+                // *** CHUYỂN HƯỚNG CHO NGƯỜI BÁN ***
+                navigate(`/manage-auction-detail/${auctionId}`); 
+            } else {
+                // *** CHUYỂN HƯỚNG CHO NGƯỜI MUA/KHÁC ***
+                navigate(`/detail-auction/${auctionId}/${sellerId}`); 
+            }
         } else {
             // Chuyển giao các hành động cần xử lý bên ngoài (cancel/complete) cho component cha
             onActionClick(action, auctionId);
